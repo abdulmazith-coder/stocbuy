@@ -42,10 +42,10 @@ testing_usage.txt
 
 
 # cursor 
-.cursor/
+cursor/
 
 # gitignore
-.gitignore
+gitignore
 
 # Migrations (optional)
 # */migrations/*
