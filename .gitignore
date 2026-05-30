@@ -40,6 +40,13 @@ requirements.txt
 system_instrustion.txt
 testing_usage.txt
 
+
+# cursor 
+.cursor/
+
+# gitignore
+.gitignore
+
 # Migrations (optional)
 # */migrations/*
 # !*/migrations/__init__.py
