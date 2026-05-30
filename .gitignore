@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.venv/
+stocbuy_env/
+
+# Environment Variables
+.env
+.env.*
+
+# Django
+db.sqlite3
+media/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build files
+build/
+dist/
+*.egg-info/
+
+# testing files 
+requirements.txt
+system_instrustion.txt
+testing_usage.txt
+
+# Migrations (optional)
+# */migrations/*
+# !*/migrations/__init__.py

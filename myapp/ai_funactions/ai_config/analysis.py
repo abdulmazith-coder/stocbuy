@@ -1,0 +1,830 @@
+import re
+import asyncio
+from datetime import timedelta
+
+from django.utils import timezone
+from django.db import IntegrityError
+from asgiref.sync import sync_to_async
+
+from myapp.ai_funactions.ai_config.ai_config import AIAnalsysis
+from myapp.ai_funactions.ai_config.ai_response.models import AIResponse
+
+from myapp.ai_funactions.system_instrustion.balancesheet_prompt import (
+    system_instruction_for_balance_sheet,
+)
+from myapp.ai_funactions.system_instrustion.cashflow_prompt import (
+    system_instruction_for_cash_flow,
+)
+from myapp.ai_funactions.system_instrustion.final_prompt import (
+    system_instruction_for_analysis_ai,
+)
+from myapp.ai_funactions.system_instrustion.financialratios_prompt import (
+    system_instruction_for_financial_ratios,
+)
+from myapp.ai_funactions.system_instrustion.incomesheet_prompt import (
+    system_instruction_for_income_statement,
+)
+from myapp.ai_funactions.system_instrustion.news_pompt import (
+    system_instruction_for_news_analysis,
+)
+from myapp.ai_funactions.system_instrustion.shareholder_prompt import (
+    system_instruction_for_shareholding_pattern,
+)
+from myapp.ai_funactions.system_instrustion.wordfinding_prompt import (
+    system_instruction_wordfinding,
+)
+
+from myapp.clean_data.validate_exchange import validate_exchange
+from myapp.clean_data.financila_statement import clean_financial_data
+from myapp.datasource.scraping.company_news import ScrapingNewsData
+
+
+# ─────────────────────────────────────────────────────────────
+# CONFIG
+# ─────────────────────────────────────────────────────────────
+
+CACHE_HOURS = 24
+
+# Analysis type keys — used as DB keys and route keys
+BALANCE_SHEET      = "balance_sheet"
+INCOME_STATEMENT   = "income_statement"
+CASH_FLOW          = "cash_flow"
+SHAREHOLDERS       = "shareholders"
+FINANCIAL_RATIOS   = "financial_ratios"
+NEWS               = "news"
+FULL_ANALYSIS      = "full_analysis"
+FINAL_ANALYSIS     = "final_analysis"
+
+
+# ─────────────────────────────────────────────────────────────
+# SAFE THREAD
+# ─────────────────────────────────────────────────────────────
+
+async def _run_in_thread(fn, *args):
+    return await asyncio.to_thread(fn, *args)
+
+
+# ─────────────────────────────────────────────────────────────
+# YFINANCE FETCH
+# ─────────────────────────────────────────────────────────────
+
+def _fetch_all_yfinance(ticker):
+    return {
+        "balance_sheet":  ticker.balance_sheet,
+        "income_stmt":    ticker.income_stmt,
+        "cashflow":       ticker.cashflow,
+        "major_holders":  ticker.major_holders,
+        "info":           ticker.info,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# CACHE DATABASE
+# ─────────────────────────────────────────────────────────────
+
+class SavingResponse:
+    """
+    Per-stock, per-analysis_type cache with 24-hour expiry.
+
+    Cache behaviour:
+      • Any user requesting the same (stock_symbol, analysis_type)
+        within 24 h gets the stored response immediately.
+      • After 24 h the record is considered expired → AI re-runs,
+        result overwrites the existing row, timer resets.
+      • This means ALL users share the same cache entry per stock.
+    """
+
+    # ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def get_cached_response(
+        stock_symbol: str,
+        analysis_type: str,
+    ):
+        """
+        Returns:
+          None                          – no row in DB at all
+          {"cached": True,
+           "expired": False,
+           "response": <data>}          – fresh (< 24 h)
+          {"cached": True,
+           "expired": True,
+           "response": <data>}          – stale (≥ 24 h), needs refresh
+        """
+        try:
+            obj = await sync_to_async(
+                AIResponse.objects.filter(
+                    stock_symbol=stock_symbol,
+                    analysis_type=analysis_type,
+                ).first
+            )()
+
+            if not obj:
+                return None
+
+            now  = timezone.now()
+            diff = now - obj.updated_at if obj.updated_at else timedelta(days=999)
+
+            expired = diff >= timedelta(hours=CACHE_HOURS)
+
+            return {
+                "cached":   True,
+                "expired":  expired,
+                "response": obj.response,
+            }
+
+        except Exception as e:
+            print(f"[CACHE GET ERROR] ({stock_symbol}/{analysis_type}):", e)
+            return None
+
+    # ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def save_response(
+        stock_symbol: str,
+        analysis_type: str,
+        ai_data,
+    ):
+        """
+        Upsert: create if not exists, otherwise overwrite + reset timestamp.
+        Returns the data that was saved (or fell back to).
+        """
+        try:
+            obj, created = await sync_to_async(
+                AIResponse.objects.get_or_create
+            )(
+                stock_symbol=stock_symbol,
+                analysis_type=analysis_type,
+                defaults={"response": ai_data},
+            )
+
+            if not created:
+                obj.response   = ai_data
+                obj.updated_at = timezone.now()
+                await sync_to_async(obj.save)()
+
+            return ai_data
+
+        except IntegrityError:
+            # Race condition: another request created the row first → just return
+            obj = await sync_to_async(
+                AIResponse.objects.filter(
+                    stock_symbol=stock_symbol,
+                    analysis_type=analysis_type,
+                ).first
+            )()
+            return obj.response if obj else ai_data
+
+        except Exception as e:
+            print(f"[CACHE SAVE ERROR] ({stock_symbol}/{analysis_type}):", e)
+            return ai_data
+
+
+# ─────────────────────────────────────────────────────────────
+# AI RUNNER  (with heartbeat progress messages)
+# ─────────────────────────────────────────────────────────────
+
+async def _run_ai(
+    ai_callable,
+    *ai_args,
+    progress_queue: asyncio.Queue = None,
+    analysis_type: str = "",
+):
+    ai_task = asyncio.create_task(
+        _run_in_thread(ai_callable, *ai_args)
+    )
+
+    hb = None
+
+    if progress_queue:
+        async def _heartbeat():
+            dots = [".", "..", "..."]
+            i = 0
+            while not ai_task.done():
+                await asyncio.sleep(3)
+                if not ai_task.done():
+                    await progress_queue.put({
+                        "status":  "processing",
+                        "message": f"AI is analyzing {analysis_type}{dots[i % 3]}",
+                    })
+                    i += 1
+
+        hb = asyncio.create_task(_heartbeat())
+
+    try:
+        ai_data = await ai_task
+    finally:
+        if hb:
+            hb.cancel()
+
+    return ai_data
+
+
+# ─────────────────────────────────────────────────────────────
+# MAIN CLASS
+# ─────────────────────────────────────────────────────────────
+
+class AnalysisStatement:
+
+    def __init__(self, userResponsive, stock_symbol):
+        self.userResponsive = userResponsive
+        self.stock_symbol   = stock_symbol
+        self.ticker         = validate_exchange(stock_symbol)
+        self.ai_semaphore   = asyncio.Semaphore(2)
+
+    # ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _info_str(infodata, *keys, default="N/A"):
+        if not infodata:
+            return default
+        for key in keys:
+            value = infodata.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        return default
+
+    # ─────────────────────────────────────────────────────────
+
+    def _company_context(self, infodata):
+        name = self._info_str(
+            infodata,
+            "longName", "shortName", "name", "symbol",
+            default=self.stock_symbol,
+        )
+        industry = self._info_str(infodata, "industry")
+        sector   = self._info_str(infodata, "sector")
+        return (
+            f"company name: {name}, "
+            f"industry: {industry}, "
+            f"sector: {sector}, "
+            f"user responsive: {self.userResponsive}"
+        )
+
+    # ─────────────────────────────────────────────────────────
+
+    async def wordfindingAI(self, prompt):
+        if not prompt:
+            return None
+
+        ai_response = await asyncio.to_thread(
+            AIAnalsysis.aiAnalysis,
+            self.userResponsive,
+            prompt,
+            system_instruction_wordfinding,
+        )
+
+        if not ai_response:
+            return None
+
+        return ai_response.strip().lower()
+
+    # ─────────────────────────────────────────────────────────
+
+    async def _fetch_yf(self):
+        return await _run_in_thread(_fetch_all_yfinance, self.ticker)
+
+    # ─────────────────────────────────────────────────────────
+    # CORE STREAM WRAPPER  (yields progress dicts + __result__)
+    # ─────────────────────────────────────────────────────────
+
+    async def _stream_ai(
+        self,
+        analysis_type,
+        label,
+        ai_callable,
+        *ai_args,
+    ):
+        pq = asyncio.Queue()
+
+        async with self.ai_semaphore:
+            ai_task = asyncio.create_task(
+                _run_ai(
+                    ai_callable,
+                    *ai_args,
+                    progress_queue=pq,
+                    analysis_type=analysis_type,
+                )
+            )
+
+            while not ai_task.done():
+                try:
+                    msg = await asyncio.wait_for(pq.get(), timeout=3.0)
+                    yield msg
+                except asyncio.TimeoutError:
+                    yield {
+                        "status":  "processing",
+                        "message": f"AI is still working on {label}...",
+                    }
+
+            result = await ai_task
+            yield {"__result__": result}
+
+    # ─────────────────────────────────────────────────────────
+    # CACHE-AWARE SINGLE ANALYSIS
+    #
+    # Flow:
+    #   1. Check DB cache for (stock_symbol, analysis_type)
+    #   2a. Fresh cache  → yield cached result immediately, return
+    #   2b. Stale / miss → run AI, save result to DB, yield result
+    # ─────────────────────────────────────────────────────────
+
+    async def _cached_single_analysis(
+        self,
+        analysis_type: str,
+        statement_data,
+        info_data,
+        ai_function,
+        system_prompt,
+        response_key: str,
+    ):
+        # ── 1. Cache check ──────────────────────────────────
+        cached = await SavingResponse.get_cached_response(
+            self.stock_symbol, analysis_type
+        )
+
+        if cached and not cached["expired"]:
+            yield {
+                "status":     "success",
+                "cached":     True,
+                response_key: cached["response"],
+            }
+            return
+
+        # ── 2. Validate + clean raw data ────────────────────
+        if hasattr(statement_data, "empty") and statement_data.empty:
+            yield {"status": "error", "message": f"{analysis_type} data is empty"}
+            return
+
+        cleaned = clean_financial_data(statement_data)
+        if not cleaned:
+            yield {"status": "error", "message": f"Failed cleaning {analysis_type}"}
+            return
+
+        ctx    = self._company_context(info_data)
+        result = None
+
+        # ── 3. Run AI ────────────────────────────────────────
+        async for item in self._stream_ai(
+            analysis_type,
+            analysis_type,
+            ai_function,
+            ctx,
+            cleaned,
+            system_prompt,
+        ):
+            if "__result__" in item:
+                result = item["__result__"]
+            else:
+                yield item
+
+        # ── 4. Persist to DB ─────────────────────────────────
+        if result:
+            await SavingResponse.save_response(
+                self.stock_symbol, analysis_type, result
+            )
+
+        yield {
+            "status":     "success",
+            "cached":     False,
+            response_key: result,
+        }
+
+    # ─────────────────────────────────────────────────────────
+    # BALANCE SHEET
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisTheBalanceSheet(self):
+        yield {"status": "processing", "message": "Fetching balance sheet..."}
+
+        data = await self._fetch_yf()
+
+        async for item in self._cached_single_analysis(
+            BALANCE_SHEET,
+            data["balance_sheet"],
+            data["info"],
+            AIAnalsysis.aiAnalysis,
+            system_instruction_for_balance_sheet,
+            BALANCE_SHEET,
+        ):
+            yield item
+
+    # ─────────────────────────────────────────────────────────
+    # INCOME STATEMENT
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisIncomeStatement(self):
+        yield {"status": "processing", "message": "Fetching income statement..."}
+
+        data = await self._fetch_yf()
+
+        async for item in self._cached_single_analysis(
+            INCOME_STATEMENT,
+            data["income_stmt"],
+            data["info"],
+            AIAnalsysis.aiAnalysis,
+            system_instruction_for_income_statement,
+            INCOME_STATEMENT,
+        ):
+            yield item
+
+    # ─────────────────────────────────────────────────────────
+    # CASH FLOW
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisCashFlow(self):
+        yield {"status": "processing", "message": "Fetching cash flow..."}
+
+        data = await self._fetch_yf()
+
+        async for item in self._cached_single_analysis(
+            CASH_FLOW,
+            data["cashflow"],
+            data["info"],
+            AIAnalsysis.aiAnalysis,
+            system_instruction_for_cash_flow,
+            CASH_FLOW,
+        ):
+            yield item
+
+    # ─────────────────────────────────────────────────────────
+    # SHAREHOLDERS
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisShareholders(self):
+        yield {"status": "processing", "message": "Fetching shareholders..."}
+
+        data = await self._fetch_yf()
+
+        async for item in self._cached_single_analysis(
+            SHAREHOLDERS,
+            data["major_holders"],
+            data["info"],
+            AIAnalsysis.aiAnalysis_3,
+            system_instruction_for_shareholding_pattern,
+            SHAREHOLDERS,
+        ):
+            yield item
+
+    # ─────────────────────────────────────────────────────────
+    # FINANCIAL RATIOS  (uses aiAnalysis_2 + info dict directly)
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisFinancialRatios(self):
+        yield {"status": "processing", "message": "Fetching financial ratios..."}
+
+        # ── Cache check ──────────────────────────────────────
+        cached = await SavingResponse.get_cached_response(
+            self.stock_symbol, FINANCIAL_RATIOS
+        )
+        if cached and not cached["expired"]:
+            yield {
+                "status":          "success",
+                "cached":          True,
+                FINANCIAL_RATIOS:  cached["response"],
+            }
+            return
+
+        data   = await self._fetch_yf()
+        result = None
+
+        async for item in self._stream_ai(
+            FINANCIAL_RATIOS,
+            FINANCIAL_RATIOS,
+            AIAnalsysis.aiAnalysis_2,
+            self.userResponsive,
+            data["info"],
+            system_instruction_for_financial_ratios,
+        ):
+            if "__result__" in item:
+                result = item["__result__"]
+            else:
+                yield item
+
+        if result:
+            await SavingResponse.save_response(
+                self.stock_symbol, FINANCIAL_RATIOS, result
+            )
+
+        yield {
+            "status":         "success",
+            "cached":         False,
+            FINANCIAL_RATIOS: result,
+        }
+
+    # ─────────────────────────────────────────────────────────
+    # NEWS
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisNews(self):
+        yield {"status": "processing", "message": "Fetching latest news..."}
+
+        # ── Cache check ──────────────────────────────────────
+        cached = await SavingResponse.get_cached_response(
+            self.stock_symbol, NEWS
+        )
+        if cached and not cached["expired"]:
+            yield {
+                "status": "success",
+                "cached": True,
+                NEWS:     cached["response"],
+            }
+            return
+
+        news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews("1d")
+        result    = None
+
+        async for item in self._stream_ai(
+            NEWS,
+            NEWS,
+            AIAnalsysis.aiAnalysis_3,
+            self.userResponsive + " these are 1 day news",
+            news_data,
+            system_instruction_for_news_analysis,
+        ):
+            if "__result__" in item:
+                result = item["__result__"]
+            else:
+                yield item
+
+        if result:
+            await SavingResponse.save_response(
+                self.stock_symbol, NEWS, result
+            )
+
+        yield {
+            "status": "success",
+            "cached": False,
+            NEWS:     result,
+        }
+
+    # ─────────────────────────────────────────────────────────
+    # FULL ANALYSIS
+    #
+    # Strategy:
+    #   • Check individual cache for every sub-analysis first.
+    #   • Run AI only for sub-analyses that are missing / expired.
+    #   • Save each sub-result to DB individually.
+    #   • Check full_analysis cache for the final combined result.
+    #   • Run final AI only if full_analysis is expired / missing.
+    #   • Save final result to DB.
+    # ─────────────────────────────────────────────────────────
+
+    async def analysisTheStock(self, analysis_type):
+
+        yield {"status": "processing", "message": "Starting full stock analysis..."}
+
+        # ── Check full_analysis cache first ──────────────────
+        cached_full = await SavingResponse.get_cached_response(
+            self.stock_symbol, FULL_ANALYSIS
+        )
+        if cached_full and not cached_full["expired"]:
+            yield {
+                "status":  "success",
+                "message": "Using cached full analysis",
+                "cached":  True,
+                "data":    cached_full["response"],
+            }
+            return
+
+        # ── Fetch raw data ───────────────────────────────────
+        yield {"status": "processing", "message": "Fetching stock data..."}
+        try:
+            yf_data = await self._fetch_yf()
+        except Exception as e:
+            yield {"status": "error", "message": f"Failed fetching stock data: {e}"}
+            return
+
+        try:
+            news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews("1d")
+        except Exception as e:
+            yield {"status": "error", "message": f"Failed fetching news: {e}"}
+            return
+
+        info_data         = yf_data["info"]
+        balance_sheet_raw = yf_data["balance_sheet"]
+        income_stmt_raw   = yf_data["income_stmt"]
+        cashflow_raw      = yf_data["cashflow"]
+        holders_raw       = yf_data["major_holders"]
+
+        if not info_data:
+            yield {"status": "error", "message": "Stock info empty"}
+            return
+
+        # ── Clean raw dataframes ─────────────────────────────
+        cleaned  = {}
+        datasets = [
+            (BALANCE_SHEET,    balance_sheet_raw),
+            (INCOME_STATEMENT, income_stmt_raw),
+            (CASH_FLOW,        cashflow_raw),
+            (SHAREHOLDERS,     holders_raw),
+        ]
+        for label, raw in datasets:
+            if hasattr(raw, "empty") and raw.empty:
+                yield {"status": "error", "message": f"{label} data is empty"}
+                return
+            c = clean_financial_data(raw)
+            if not c:
+                yield {"status": "error", "message": f"Failed cleaning {label}"}
+                return
+            cleaned[label] = c
+
+        ctx       = self._company_context(info_data)
+        collected = {}
+
+        # ─────────────────────────────────────────────────────
+        # Sub-analysis job definitions
+        # Each tuple:  (analysis_type_key, ai_fn, *ai_args)
+        # ─────────────────────────────────────────────────────
+        ai_jobs = [
+            (
+                BALANCE_SHEET,
+                AIAnalsysis.aiAnalysis,
+                ctx, cleaned[BALANCE_SHEET],
+                system_instruction_for_balance_sheet,
+            ),
+            (
+                INCOME_STATEMENT,
+                AIAnalsysis.aiAnalysis,
+                ctx, cleaned[INCOME_STATEMENT],
+                system_instruction_for_income_statement,
+            ),
+            (
+                CASH_FLOW,
+                AIAnalsysis.aiAnalysis,
+                ctx, cleaned[CASH_FLOW],
+                system_instruction_for_cash_flow,
+            ),
+            (
+                SHAREHOLDERS,
+                AIAnalsysis.aiAnalysis_3,
+                ctx, cleaned[SHAREHOLDERS],
+                system_instruction_for_shareholding_pattern,
+            ),
+            (
+                FINANCIAL_RATIOS,
+                AIAnalsysis.aiAnalysis_2,
+                self.userResponsive, info_data,
+                system_instruction_for_financial_ratios,
+            ),
+            (
+                NEWS,
+                AIAnalsysis.aiAnalysis_3,
+                self.userResponsive + " these are 1 day news",
+                news_data,
+                system_instruction_for_news_analysis,
+            ),
+        ]
+
+        # ── Run each sub-analysis (cache-aware) ──────────────
+        for (label, ai_fn, *args) in ai_jobs:
+
+            # Check individual cache first
+            sub_cached = await SavingResponse.get_cached_response(
+                self.stock_symbol, label
+            )
+
+            if sub_cached and not sub_cached["expired"]:
+                # ✅ Fresh cache hit — no AI call needed
+                collected[label] = sub_cached["response"]
+                yield {
+                    "status":  "processing",
+                    "message": f"{label} loaded from cache",
+                }
+                continue
+
+            # Cache miss or stale → run AI
+            yield {
+                "status":  "processing",
+                "message": f"Running {label} analysis...",
+            }
+
+            result = None
+
+            async for item in self._stream_ai(label, label, ai_fn, *args):
+                if "__result__" in item:
+                    result = item["__result__"]
+                else:
+                    yield item
+
+            collected[label] = result
+
+            # 💾 Save individual sub-result to DB
+            if result:
+                await SavingResponse.save_response(
+                    self.stock_symbol, label, result
+                )
+
+        # ── Final combined analysis ───────────────────────────
+        final_response = None
+
+        final_prompt = (
+            f"balance sheet: {collected.get(BALANCE_SHEET)}, "
+            f"income statement: {collected.get(INCOME_STATEMENT)}, "
+            f"cash flow: {collected.get(CASH_FLOW)}, "
+            f"shareholders: {collected.get(SHAREHOLDERS)}, "
+            f"financial ratios: {collected.get(FINANCIAL_RATIOS)}, "
+            f"news: {collected.get(NEWS)}"
+        )
+
+        async for item in self._stream_ai(
+            FINAL_ANALYSIS,
+            FINAL_ANALYSIS,
+            AIAnalsysis.aiAnalysis_2,
+            self.userResponsive,
+            final_prompt,
+            system_instruction_for_analysis_ai,
+        ):
+            if "__result__" in item:
+                final_response = item["__result__"]
+            else:
+                yield item
+
+        # ── Assemble final data dict ──────────────────────────
+        final_data = {
+            BALANCE_SHEET:    collected.get(BALANCE_SHEET),
+            INCOME_STATEMENT: collected.get(INCOME_STATEMENT),
+            CASH_FLOW:        collected.get(CASH_FLOW),
+            SHAREHOLDERS:     collected.get(SHAREHOLDERS),
+            FINANCIAL_RATIOS: collected.get(FINANCIAL_RATIOS),
+            "news_analysis":  collected.get(NEWS),
+            FINAL_ANALYSIS:   final_response,
+        }
+
+        # 💾 Save full combined result to DB
+        await SavingResponse.save_response(
+            self.stock_symbol, FULL_ANALYSIS, final_data
+        )
+
+        yield {
+            "status":  "success",
+            "message": "Full analysis complete",
+            "cached":  False,
+            "data":    final_data,
+        }
+
+    # ─────────────────────────────────────────────────────────
+    # ROUTER
+    # ─────────────────────────────────────────────────────────
+
+    async def switch_ai_analysis(self):
+
+        user_response = await self.wordfindingAI(self.userResponsive)
+
+        print("RAW RESPONSE:", repr(user_response))
+
+        if (
+            not user_response
+            or (
+                isinstance(user_response, str)
+                and user_response.strip().lower() == "general"
+            )
+        ):
+            yield {"status": "done", "message": "No analysis needed"}
+            return
+
+        route_map = {
+            "balance sheet":        lambda: self.analysisTheBalanceSheet(),
+            "income statement":     lambda: self.analysisIncomeStatement(),
+            "cash flow":            lambda: self.analysisCashFlow(),
+            "shareholding pattern": lambda: self.analysisShareholders(),
+            "valuation ratios":     lambda: self.analysisFinancialRatios(),
+            "news":                 lambda: self.analysisNews(),
+            "full_analysis":        lambda: self.analysisTheStock("full_analysis"),
+        }
+
+        if isinstance(user_response, str):
+            responses = [
+                item.strip().lower()
+                for item in re.split(r"[\n,]+", user_response)
+                if item.strip()
+            ]
+        elif isinstance(user_response, list):
+            responses = [
+                str(item).strip().lower()
+                for item in user_response
+                if str(item).strip()
+            ]
+        else:
+            responses = [str(user_response).strip().lower()]
+
+        print("FINAL TYPES:", responses)
+
+        for analysis_type in responses:
+
+            handler = route_map.get(analysis_type)
+
+            if not handler:
+                yield {
+                    "status":  "error",
+                    "message": f"Unknown analysis type: {analysis_type}",
+                }
+                continue
+
+            yield {
+                "status":  "processing",
+                "message": f"Running {analysis_type}...",
+            }
+
+            async for item in handler():
+                yield item
