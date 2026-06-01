@@ -17,7 +17,7 @@ class ScrapingNewsData:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"]
+                args=["--no-sandbox", "--disable-dev-shm-usage",'--single-process',]
             )
             page = await browser.new_page()
 

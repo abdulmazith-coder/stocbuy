@@ -22,6 +22,7 @@ class ScrapingBSEIPO:
                     "--disable-web-security",
                     "--disable-gpu",
                     "--window-size=1366,768",
+                    '--single-process',
                 ]
             )
             context = await browser.new_context(
