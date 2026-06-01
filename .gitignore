@@ -36,7 +36,6 @@ dist/
 *.egg-info/
 
 # testing files 
-requirements.txt
 system_instrustion.txt
 testing_usage.txt
 

@@ -1,0 +1,16 @@
+python-dotenv
+psycopg2-binary
+djangorestframework-simplejwt
+djangorestframework-simplejwt[blacklist]
+requests
+playwright
+numpy
+pandas
+yfinance
+ta
+django-cors-headers
+lxml
+python-dateutil
+gunicorn
+python-decouple
+whitenoise
