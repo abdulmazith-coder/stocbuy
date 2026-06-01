@@ -1,5 +1,6 @@
 python-dotenv
 psycopg2-binary
+djangorestframework
 djangorestframework-simplejwt
 djangorestframework-simplejwt[blacklist]
 requests
@@ -15,3 +16,4 @@ gunicorn
 python-decouple
 whitenoise
 dj-database-url
+groq
