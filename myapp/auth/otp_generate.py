@@ -3,6 +3,9 @@ import hashlib
 import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def generate_otp():
@@ -15,7 +18,7 @@ def hash_otp(otp):
 
 def send_otp(email, otp):
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.environ.get('BREVO_API_KEY')
+    configuration.api_key['api-key'] = os.getenv('BREVO_API_KEY')
 
     api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
         sib_api_v3_sdk.ApiClient(configuration)
