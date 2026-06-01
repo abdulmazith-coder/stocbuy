@@ -4,6 +4,7 @@ djangorestframework
 djangorestframework-simplejwt
 djangorestframework-simplejwt[blacklist]
 requests
+playwright
 numpy
 pandas
 yfinance
@@ -17,6 +18,3 @@ whitenoise
 dj-database-url
 groq
 sib-api-v3-sdk
-httpx
-beautifulsoup4
-lxml
