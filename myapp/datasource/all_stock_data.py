@@ -343,3 +343,10 @@ class StockData:
                 "sensex":  index_data.tickers["^BSESN"].info,
             }
         }
+    
+
+
+
+
+
+    

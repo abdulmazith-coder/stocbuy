@@ -126,10 +126,10 @@ class MarketRSIService:
         return final_output
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    service = MarketRSIService()
+#     service = MarketRSIService()
 
-    result = service.get_market_rsi()
+#     result = service.get_market_rsi()
 
-    print(result)
+#     print(result)

@@ -19,6 +19,7 @@ from myapp.features.future_target import FutureTargetAPI
 from myapp.features.indiavix_apis import IndiaVIXDataAPI
 from myapp.features.market_breadth_apis import MarketBreadthAPI
 from myapp.features.market_rsi_api import MarketRSIAPIView
+from myapp.features.rate_limit import AiAnalysisUsageView
 
 urlpatterns = [
     path('company-news/', CompanyNewsAPI.as_view(), name='company-news'),
@@ -42,4 +43,5 @@ urlpatterns = [
     path('indiavix-data/', IndiaVIXDataAPI.as_view(), name='indiavix-data'),
     path('market-breadth/', MarketBreadthAPI.as_view(), name='market-breadth'),
     path('market-rsi/', MarketRSIAPIView.as_view(), name='market-rsi'),
+    path('ai-analysis-usage/', AiAnalysisUsageView.as_view(), name='ai-analysis-usage'),
 ]

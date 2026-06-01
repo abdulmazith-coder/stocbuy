@@ -6,6 +6,7 @@ from myapp.auth.views.login import LoginView
 from myapp.auth.views.logout import LogoutView
 from myapp.auth.views.refresh_token import RefreshTokenView
 from myapp.auth.views.forget_password import ForgetPasswordView
+from myapp.auth.views.contact_us import ContactUsView
 
 urlpatterns = [
     path('signup/', SignupView.as_view(), name='signup'),
@@ -15,5 +16,6 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('refresh-token/', RefreshTokenView.as_view(), name='refresh-token'),
     path('forget-password/', ForgetPasswordView.as_view(), name='forget-password'),
+    path('contact-us/', ContactUsView.as_view(), name='contact-us'),
     
 ]

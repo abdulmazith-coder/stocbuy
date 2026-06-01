@@ -1,4 +1,3 @@
-# views.py
 from django.http import StreamingHttpResponse
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -9,17 +8,21 @@ import queue
 import threading
 
 from myapp.ai_funactions.ai_config.analysis import AnalysisStatement
+from django.utils import timezone
+from myapp.auth.models import AiAnalysisRecord
+from myapp.auth.permission import (
+    can_request_analysis,
+    record_analysis,
+    user_has_feature,
+)
 
-_SENTINEL = object()  # signals the queue is done
+_SENTINEL = object()
+
 
 class AiAnalysisAPI(APIView):
     permission_classes = [IsAuthenticated]
 
-    def stream_analysis(self, prompt, stock_symbol):
-        """
-        Runs the async generator on a dedicated thread with its own event loop.
-        Pushes results into a sync queue so StreamingHttpResponse can consume them.
-        """
+    def stream_analysis(self, prompt, stock_symbol, user):
         result_queue = queue.Queue()
 
         async def _run():
@@ -31,7 +34,7 @@ class AiAnalysisAPI(APIView):
             except Exception as e:
                 result_queue.put({"status": "error", "message": str(e)})
             finally:
-                result_queue.put(_SENTINEL)  # always signal done
+                result_queue.put(_SENTINEL)
 
         def _thread():
             loop = asyncio.new_event_loop()
@@ -41,11 +44,9 @@ class AiAnalysisAPI(APIView):
             finally:
                 loop.close()
 
-        # Start async work in background thread
         thread = threading.Thread(target=_thread, daemon=True)
         thread.start()
 
-        # Yield results as SSE events
         while True:
             item = result_queue.get()
             if item is _SENTINEL:
@@ -53,6 +54,25 @@ class AiAnalysisAPI(APIView):
             yield f"data: {json.dumps(item)}\n\n"
 
         thread.join()
+
+        # ── Send usage as final SSE event ─────────────────────────────────
+        today = timezone.now().date()
+        used_today = AiAnalysisRecord.objects.filter(
+            user=user,
+            date=today,
+        ).count()
+        is_unlimited = user_has_feature(user, 'analysis_unlimited')
+        limit = user.ai_analysis_daily_limit
+
+        usage_event = {
+            "status": "usage",
+            "plan": user.plan,
+            "is_unlimited": is_unlimited,
+            "used": used_today,
+            "limit": None if is_unlimited else limit,
+            "remaining": None if is_unlimited else max(0, limit - used_today),
+        }
+        yield f"data: {json.dumps(usage_event)}\n\n"
 
     def get(self, request):
         stock_symbol = request.query_params.get("stock_symbol")
@@ -64,8 +84,26 @@ class AiAnalysisAPI(APIView):
                 status=400,
             )
 
+        # ── Check daily limit (AI analysis costs 1) ───────────────────────
+        check = can_request_analysis(request.user, stock_symbol.strip().upper(), cost=1)
+        if not check['allowed']:
+            return Response(
+                {
+                    'success': False,
+                    'message': check['error'],
+                    'used': check['used'],
+                    'limit': check['limit'],
+                    'remaining': check['remaining'],
+                },
+                status=403,
+            )
+
+        # ── Record the analysis (costs 1) ─────────────────────────────────
+        record_analysis(request.user, stock_symbol.strip().upper(), cost=1)
+
+        # ── Stream response ───────────────────────────────────────────────
         response = StreamingHttpResponse(
-            self.stream_analysis(prompt, stock_symbol),
+            self.stream_analysis(prompt, stock_symbol, request.user),
             content_type="text/event-stream",
         )
         response["Cache-Control"] = "no-cache"

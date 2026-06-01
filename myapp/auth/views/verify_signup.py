@@ -13,7 +13,7 @@ class VerifySignupView(APIView):
         if not email or not otp:
             return Response({'error': 'Email and OTP are required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            record = Otp.objects.filter(email=email, otp=hash_otp(otp)).last()
+            record = Otp.objects.filter(email=email, otp=hash_otp(otp)).order_by('-created_at').first()
             if not record:
                 return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
             if record.created_at < timezone.now() - timedelta(minutes=5):
