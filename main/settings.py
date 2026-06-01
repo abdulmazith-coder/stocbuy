@@ -64,7 +64,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["stocbuy.onrender.com"]
 
 ROOT_URLCONF = 'main.urls'
 
