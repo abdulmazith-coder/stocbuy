@@ -531,7 +531,7 @@ class AnalysisStatement:
             }
             return
 
-        news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews()
+        news_data = ScrapingNewsData(self.stock_symbol).scrapingNews()
         result    = None
 
         async for item in self._stream_ai(
@@ -596,7 +596,7 @@ class AnalysisStatement:
             return
 
         try:
-            news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews()
+            news_data = ScrapingNewsData(self.stock_symbol).scrapingNews()
         except Exception as e:
             yield {"status": "error", "message": f"Failed fetching news: {e}"}
             return
