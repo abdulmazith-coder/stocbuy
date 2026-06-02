@@ -596,7 +596,7 @@ class AnalysisStatement:
             return
 
         try:
-            news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews("1d")
+            news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews()
         except Exception as e:
             yield {"status": "error", "message": f"Failed fetching news: {e}"}
             return
