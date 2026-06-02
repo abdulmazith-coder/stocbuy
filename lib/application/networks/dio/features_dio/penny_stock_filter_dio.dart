@@ -213,9 +213,13 @@ class PennyStockFilterDio {
     CancelToken? cancelToken,
   }) async* {
     if (kIsWeb) {
-      final uri = Uri.parse(
-        '${DioClient.dio.options.baseUrl}$path',
-      ).replace(queryParameters: {'cap_type': cap});
+      final parsedPath = Uri.parse(path);
+      final baseUri = Uri.parse(DioClient.dio.options.baseUrl);
+      final uri = parsedPath.hasScheme
+          ? parsedPath.replace(queryParameters: {'cap_type': cap})
+          : baseUri
+                .resolveUri(parsedPath)
+                .replace(queryParameters: {'cap_type': cap});
       final headers = <String, String>{'Accept': accept};
       final token = await SecureStorage.getAccessToken();
       if (token.isNotEmpty) {
@@ -307,11 +311,7 @@ class PennyStockFilterDio {
     try {
       await for (final json in jsonStream) {
         if (_isErrorPayload(json)) {
-          throw PennyStockFilterException(
-            json['message']?.toString() ??
-                json['detail']?.toString() ??
-                'Scanner failed.',
-          );
+          throw _createErrorException(json);
         }
         yield PennyStockFilterEvent.fromJson(json);
       }
@@ -320,8 +320,31 @@ class PennyStockFilterDio {
     }
   }
 
+  Exception _createErrorException(Map<String, dynamic> json) {
+    final message =
+        json['message']?.toString() ??
+        json['detail']?.toString() ??
+        json['error']?.toString() ??
+        'Scanner failed.';
+    if (_isPremiumAccessError(message)) {
+      return PennyStockFilterLimitException(message);
+    }
+    return PennyStockFilterException(message);
+  }
+
   bool _isErrorPayload(Map<String, dynamic> json) {
     return json['success'] == false && json['message'] != null;
+  }
+
+  bool _isPremiumAccessError(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('premium') ||
+        normalized.contains('connect with us') ||
+        normalized.contains('request access') ||
+        normalized.contains('not enable') ||
+        normalized.contains('not enabled') ||
+        normalized.contains('feature access') ||
+        normalized.contains('access denied');
   }
 }
 
