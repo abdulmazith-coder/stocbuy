@@ -73,6 +73,7 @@ class _GptInputBarState extends State<GptInputBar>
 
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
+  bool _speechInitialized = false;
 
   /// Guards against double-calling _finishVoice.
   bool _isFinishing = false;
@@ -95,8 +96,6 @@ class _GptInputBarState extends State<GptInputBar>
       begin: 1.0,
       end: 1.22,
     ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
-
-    _initSpeech();
   }
 
   Future<void> _initSpeech() async {
@@ -160,8 +159,14 @@ class _GptInputBarState extends State<GptInputBar>
   }
 
   Future<void> _startVoice() async {
-    if (!_speechAvailable || !widget.enabled) return;
+    if (!widget.enabled) return;
     if (_voiceState != _VoiceState.idle) return;
+
+    if (!_speechInitialized) {
+      await _initSpeech();
+      _speechInitialized = true;
+    }
+    if (!_speechAvailable) return;
 
     final locale = widget.selectedLanguage.speechLocale ?? 'en-US';
 
@@ -192,10 +197,10 @@ class _GptInputBarState extends State<GptInputBar>
         );
 
         if (text.isNotEmpty) {
-  setState(() {
-    _liveTranscript = text;
-  });
-}
+          setState(() {
+            _liveTranscript = text;
+          });
+        }
 
         if (result.finalResult) {
           _gotFinalResult = true;
@@ -353,10 +358,8 @@ class _GptInputBarState extends State<GptInputBar>
           Expanded(
             child: TextField(
               controller: _voiceState == _VoiceState.listening
-    ? TextEditingController(
-        text: _liveTranscript,
-      )
-    : widget.controller,
+                  ? TextEditingController(text: _liveTranscript)
+                  : widget.controller,
               focusNode: widget.focusNode,
               enabled: widget.enabled && _voiceState == _VoiceState.idle,
               autofocus: widget.autofocus,
@@ -371,21 +374,21 @@ class _GptInputBarState extends State<GptInputBar>
                 color: AppColors.darkblue,
               ),
               decoration: InputDecoration(
-  border: InputBorder.none,
+                border: InputBorder.none,
 
-  hintText: _voiceState == _VoiceState.processing
-      ? 'Translating to English...'
-      : widget.hintText,
+                hintText: _voiceState == _VoiceState.processing
+                    ? 'Translating to English...'
+                    : widget.hintText,
 
-  hintStyle: TextStyle(
-    fontSize: mobile ? 14.5 : 15,
-    fontWeight: FontWeight.w500,
-    color: AppColors.grey.withValues(alpha: 0.75),
-  ),
+                hintStyle: TextStyle(
+                  fontSize: mobile ? 14.5 : 15,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.grey.withValues(alpha: 0.75),
+                ),
 
-  isCollapsed: true,
-  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-),
+                isCollapsed: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
           ),
           const SizedBox(width: 4),

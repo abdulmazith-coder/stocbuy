@@ -861,6 +861,7 @@ class _InputBarState extends State<_InputBar>
 
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
+  bool _speechInitialized = false;
 
   /// Guards against double-calling _finishVoice.
   bool _isFinishing = false;
@@ -883,8 +884,6 @@ class _InputBarState extends State<_InputBar>
       begin: 1.0,
       end: 1.22,
     ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
-
-    _initSpeech();
   }
 
   Future<void> _initSpeech() async {
@@ -953,8 +952,14 @@ class _InputBarState extends State<_InputBar>
   // ─────────────────────────────────────────────
 
   Future<void> _startVoice() async {
-    if (!_speechAvailable || !widget.enabled) return;
+    if (!widget.enabled) return;
     if (_voiceState != _VoiceState.idle) return;
+
+    if (!_speechInitialized) {
+      await _initSpeech();
+      _speechInitialized = true;
+    }
+    if (!_speechAvailable) return;
 
     final locale = widget.selectedLanguage.speechLocale ?? 'en-US';
 
