@@ -34,7 +34,8 @@ class ScrapingBSEIPO:
                 response = await client.get(self.base_url)
                 response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, "html.parser")
+                # ✅ Parse inside the async with block while client/response is still alive
+                soup = BeautifulSoup(response.text, "html.parser")
 
             table_div = soup.select_one("div.col-lg-12")
             if not table_div:
@@ -81,10 +82,8 @@ class ScrapingBSEIPO:
         except Exception as e:
             print(f"Error: {e}")
             return {"current_ipo": [], "upcoming_ipo": []}
-        
 
 
 a = ScrapingBSEIPO()
 value = asyncio.run(a.scraping_bse_ipo())
 print(value)
-

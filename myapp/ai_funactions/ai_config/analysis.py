@@ -531,7 +531,7 @@ class AnalysisStatement:
             }
             return
 
-        news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews("1d")
+        news_data = await ScrapingNewsData(self.stock_symbol).scrapingNews()
         result    = None
 
         async for item in self._stream_ai(
