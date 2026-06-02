@@ -16,12 +16,11 @@ class RegisterDio {
       if (username.isEmpty || email.isEmpty || password.isEmpty) {
         throw Exception('All fields are required');
       }
-     final signupURL = APISConfigs.signup;
-      final response = await DioClient.dio.post(signupURL, data: {
-        'username': username,
-        'email': email,
-        'password': password,
-      });
+      final signupURL = APISConfigs.signup;
+      final response = await DioClient.dio.post(
+        signupURL,
+        data: {'username': username, 'email': email, 'password': password},
+      );
       if (response.statusCode == 201) {
         return response.data['message'] == true;
       }
@@ -41,10 +40,10 @@ class RegisterDio {
         throw Exception('All fields are required');
       }
       final verifyURL = APISConfigs.verifySignup;
-      final response = await DioClient.dio.post(verifyURL, data: {
-        'email': email,
-        'otp': Otpcode,
-      });
+      final response = await DioClient.dio.post(
+        verifyURL,
+        data: {'email': email, 'otp': Otpcode},
+      );
       if (response.statusCode == 200) {
         return response.data['message'] == true;
       }
@@ -59,9 +58,10 @@ class RegisterDio {
     try {
       if (email.isEmpty) throw Exception('All fields are required');
       final resendURL = APISConfigs.resendOtp;
-      final response = await DioClient.dio.post(resendURL, data: {
-        'email': email,
-      });
+      final response = await DioClient.dio.post(
+        resendURL,
+        data: {'email': email},
+      );
       if (response.statusCode == 200) {
         return response.data['message'] == true;
       }
@@ -72,19 +72,16 @@ class RegisterDio {
     }
   }
 
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     try {
       if (email.isEmpty || password.isEmpty) {
         throw Exception('All fields are required');
       }
       final loginURL = APISConfigs.login;
-      final response = await DioClient.dio.post(loginURL, data: {
-        'email': email,
-        'password': password,
-      });
+      final response = await DioClient.dio.post(
+        loginURL,
+        data: {'email': email, 'password': password},
+      );
       if (response.statusCode == 200) {
         final data = response.data;
         if (data['message'] == true) {
@@ -139,13 +136,24 @@ class RegisterDio {
 
       if (code == 200) {
         final data = response.data;
-        if (data is Map && data['message'] == true) {
+        if (data is Map) {
           final newToken = data['access_token']?.toString().trim() ?? '';
+          final newRefresh = data['refresh_token']?.toString().trim();
           if (newToken.isNotEmpty) {
             // ✅ Delete old expired access token first
             await SecureStorage.deleteAccessToken();
-            // ✅ Save fresh access token locally
-            await SecureStorage.saveToken(newToken, null);
+            // ✅ Save fresh access token locally and update refresh token if provided.
+            await SecureStorage.saveToken(newToken, newRefresh);
+            return true;
+          }
+
+          // Some backend responses do not return access_token under the
+          // expected key, but may still indicate success. Accept those too.
+          final message = data['message'];
+          final normalizedMessage = message?.toString().toLowerCase();
+          if (message == true ||
+              normalizedMessage == 'true' ||
+              normalizedMessage?.contains('success') == true) {
             return true;
           }
         }
@@ -159,33 +167,33 @@ class RegisterDio {
     }
   }
 
-Future<bool> logout() async {
-  try {
-    final refresh = await SecureStorage.getRefreshToken();
-    final logoutURL = APISConfigs.logout;
-    if (refresh.isNotEmpty) {
-      await DioClient.dio.post(
-        logoutURL,
-        data: {'refresh_token': refresh},
-        options: Options(
-          extra: {DioClient.extraKeySkipAuth: true},
-          validateStatus: (status) => status != null && status < 600,
-        ),
-      );
-    }
-  } on DioException {
-  } catch (_) {}
+  Future<bool> logout() async {
+    try {
+      final refresh = await SecureStorage.getRefreshToken();
+      final logoutURL = APISConfigs.logout;
+      if (refresh.isNotEmpty) {
+        await DioClient.dio.post(
+          logoutURL,
+          data: {'refresh_token': refresh},
+          options: Options(
+            extra: {DioClient.extraKeySkipAuth: true},
+            validateStatus: (status) => status != null && status < 600,
+          ),
+        );
+      }
+    } on DioException {
+    } catch (_) {}
 
-  try {
-    await SecureStorage.deleteAccessToken();
-    await SecureStorage.deleteRefreshToken();
-    await SecureStorage.deleteUserEmail();
-    await FilterCacheService.instance.clearAll();
-    await BestStocksCache.clearAll();
-    await UsageCacheService.instance.clearAll(); // 👈 added
-    return true;
-  } catch (_) {
-    return false;
+    try {
+      await SecureStorage.deleteAccessToken();
+      await SecureStorage.deleteRefreshToken();
+      await SecureStorage.deleteUserEmail();
+      await FilterCacheService.instance.clearAll();
+      await BestStocksCache.clearAll();
+      await UsageCacheService.instance.clearAll(); // 👈 added
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
-}
 }

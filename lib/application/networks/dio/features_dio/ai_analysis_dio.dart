@@ -26,7 +26,6 @@ class AiAnalysisReportPayload {
   final String markdown;
 }
 
-
 @immutable
 class AiAnalysisStreamEvent {
   const AiAnalysisStreamEvent({
@@ -123,7 +122,7 @@ class AiAnalysisStreamEvent {
 
 /// Streams Server-Sent Events from the AI analysis endpoint.
 class AiAnalysisDio {
-  static  String path = APISConfigs.aiAnalysis;
+  static String path = APISConfigs.aiAnalysis;
 
   static const _acceptAttempts = <String>[
     'application/json, text/event-stream;q=0.9, */*;q=0.8',
@@ -175,9 +174,26 @@ class AiAnalysisDio {
     CancelToken? cancelToken,
   }) async* {
     if (kIsWeb) {
-      final uri = Uri.parse(
-        '${DioClient.dio.options.baseUrl}$path',
-      ).replace(queryParameters: {'stock_symbol': symbol, 'prompt': prompt});
+      final parsedPath = Uri.parse(path);
+      final baseUri = Uri.parse(DioClient.dio.options.baseUrl);
+      final uri = parsedPath.hasScheme
+          ? parsedPath.replace(
+              queryParameters: {
+                ...parsedPath.queryParameters,
+                'stock_symbol': symbol,
+                'prompt': prompt,
+              },
+            )
+          : baseUri
+                .resolveUri(parsedPath)
+                .replace(
+                  queryParameters: {
+                    ...baseUri.queryParameters,
+                    ...parsedPath.queryParameters,
+                    'stock_symbol': symbol,
+                    'prompt': prompt,
+                  },
+                );
       final headers = <String, String>{'Accept': accept};
       final token = await SecureStorage.getAccessToken();
       if (token.isNotEmpty) {

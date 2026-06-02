@@ -108,8 +108,9 @@ class BalanceSheetRow {
       totalAssets: d(json['Total Assets']),
       currentAssets: d(json['Current Assets']),
       cashAndCashEquivalents: d(json['Cash And Cash Equivalents']),
-      cashAndShortTermInvestments:
-          d(json['Cash Cash Equivalents And Short Term Investments']),
+      cashAndShortTermInvestments: d(
+        json['Cash Cash Equivalents And Short Term Investments'],
+      ),
       otherShortTermInvestments: d(json['Other Short Term Investments']),
       accountsReceivable: d(json['Accounts Receivable']),
       otherReceivables: d(json['Other Receivables']),
@@ -123,20 +124,19 @@ class BalanceSheetRow {
       otherIntangibleAssets: d(json['Other Intangible Assets']),
       goodwillAndIntangibles: d(json['Goodwill And Other Intangible Assets']),
       investmentsInFinancialAssets: d(json['Investmentin Financial Assets']),
-      totalLiabilities:
-          d(json['Total Liabilities Net Minority Interest']),
+      totalLiabilities: d(json['Total Liabilities Net Minority Interest']),
       currentLiabilities: d(json['Current Liabilities']),
       accountsPayable: d(json['Accounts Payable']),
       totalTaxPayable: d(json['Total Tax Payable']),
       payables: d(json['Payables']),
       currentDebt: d(json['Current Debt And Capital Lease Obligation']),
-      totalNonCurrentLiabilities:
-          d(json['Total Non Current Liabilities Net Minority Interest']),
+      totalNonCurrentLiabilities: d(
+        json['Total Non Current Liabilities Net Minority Interest'],
+      ),
       longTermDebt: d(json['Long Term Debt And Capital Lease Obligation']),
       totalDebt: d(json['Total Debt']),
       stockholdersEquity: d(json['Stockholders Equity']),
-      totalEquityGrossMinority:
-          d(json['Total Equity Gross Minority Interest']),
+      totalEquityGrossMinority: d(json['Total Equity Gross Minority Interest']),
       minorityInterest: d(json['Minority Interest']),
       retainedEarnings: d(json['Retained Earnings']),
       additionalPaidInCapital: d(json['Additional Paid In Capital']),
@@ -250,14 +250,16 @@ class IncomeStatementRow {
       fiscalYear: _year(json['date']),
       totalRevenue: d(json['Total Revenue']),
       operatingRevenue: d(json['Operating Revenue']),
-      costOfRevenue:
-          d(json['Cost Of Revenue'] ?? json['Reconciled Cost Of Revenue']),
+      costOfRevenue: d(
+        json['Cost Of Revenue'] ?? json['Reconciled Cost Of Revenue'],
+      ),
       grossProfit: d(json['Gross Profit']),
       operatingExpense: d(json['Operating Expense']),
       otherOperatingExpenses: d(json['Other Operating Expenses']),
       sellingGeneralAdmin: d(json['Selling General And Administration']),
-      depreciation:
-          d(json['Depreciation And Amortization In Income Statement']),
+      depreciation: d(
+        json['Depreciation And Amortization In Income Statement'],
+      ),
       operatingIncome: d(json['Operating Income']),
       ebitda: d(json['EBITDA']),
       normalizedEbitda: d(json['Normalized EBITDA']),
@@ -265,8 +267,9 @@ class IncomeStatementRow {
       interestExpense: d(json['Interest Expense']),
       interestIncome: d(json['Interest Income']),
       netInterestIncome: d(json['Net Interest Income']),
-      otherNonOperatingIncomeExpenses:
-          d(json['Other Non Operating Income Expenses']),
+      otherNonOperatingIncomeExpenses: d(
+        json['Other Non Operating Income Expenses'],
+      ),
       specialIncomeCharges: d(json['Special Income Charges']),
       totalUnusualItems: d(json['Total Unusual Items']),
       pretaxIncome: d(json['Pretax Income']),
@@ -274,8 +277,9 @@ class IncomeStatementRow {
       taxRate: d(json['Tax Rate For Calcs']),
       netIncome: d(json['Net Income']),
       netIncomeCommonStockholders: d(json['Net Income Common Stockholders']),
-      netIncomeContinuousOperations:
-          d(json['Net Income Continuous Operations']),
+      netIncomeContinuousOperations: d(
+        json['Net Income Continuous Operations'],
+      ),
       normalizedIncome: d(json['Normalized Income']),
       minorityInterests: d(json['Minority Interests']),
       dilutedEps: d(json['Diluted EPS']),
@@ -385,15 +389,18 @@ class CashFlowRow {
       changeInPayable: d(json['Change In Payable']),
       changeInInventory: d(json['Change In Inventory']),
       taxesRefundPaid: d(json['Taxes Refund Paid']),
-      netIncomeFromContinuingOps: d(json['Net Income From Continuing Operations']),
+      netIncomeFromContinuingOps: d(
+        json['Net Income From Continuing Operations'],
+      ),
       netInvestmentPurchaseAndSale: d(json['Net Investment Purchase And Sale']),
       purchaseOfInvestment: d(json['Purchase Of Investment']),
       saleOfInvestment: d(json['Sale Of Investment']),
       purchaseOfPpe: d(json['Purchase Of PPE']),
       netPpePurchaseAndSale: d(json['Net PPE Purchase And Sale']),
       netBusinessPurchaseAndSale: d(json['Net Business Purchase And Sale']),
-      netIntangiblesPurchaseAndSale:
-          d(json['Net Intangibles Purchase And Sale']),
+      netIntangiblesPurchaseAndSale: d(
+        json['Net Intangibles Purchase And Sale'],
+      ),
       interestReceivedCfi: d(json['Interest Received Cfi']),
       dividendsReceivedCfi: d(json['Dividends Received Cfi']),
       cashDividendsPaid: d(json['Cash Dividends Paid']),
@@ -466,11 +473,11 @@ class ShareholdingBreakdown {
   /// the response doesn't carry any usable percentages.
   static ShareholdingBreakdown? fromStockInfo(Map<String, dynamic> info) {
     final insiders = (_double(info['heldPercentInsiders']) ?? 0) * 100;
-    final institutions =
-        (_double(info['heldPercentInstitutions']) ?? 0) * 100;
+    final institutions = (_double(info['heldPercentInstitutions']) ?? 0) * 100;
     if (insiders <= 0 && institutions <= 0) return null;
-    final remainder =
-        (100 - insiders - institutions).clamp(0.0, 100.0).toDouble();
+    final remainder = (100 - insiders - institutions)
+        .clamp(0.0, 100.0)
+        .toDouble();
     return ShareholdingBreakdown(
       asOf: DateTime.now(),
       promoters: insiders,
@@ -487,8 +494,9 @@ class ShareholdingBreakdown {
     if (insidersFrac <= 0 && instFrac <= 0) return null;
     final promoters = (insidersFrac * 100).clamp(0.0, 100.0);
     final institutions = (instFrac * 100).clamp(0.0, 100.0);
-    final publicRetail =
-        (100.0 - promoters - institutions).clamp(0.0, 100.0).toDouble();
+    final publicRetail = (100.0 - promoters - institutions)
+        .clamp(0.0, 100.0)
+        .toDouble();
     final asOf = _parseShareHolderDate(row['date']) ?? DateTime.now();
     return ShareholdingBreakdown(
       asOf: asOf,
@@ -528,24 +536,62 @@ class StockNewsItem {
   /// Parses one row from `GET features/company-news/` (`title`, `time`, `link`).
   static StockNewsItem? tryFromCompanyNewsRow(dynamic row) {
     if (row is! Map) return null;
-    final map = row is Map<String, dynamic> ? row : Map<String, dynamic>.from(row);
-    var title = map['title']?.toString().trim() ?? '';
-    title = _stripSurroundingQuotes(title);
-    final link = map['link']?.toString().trim() ?? '';
-    if (title.isEmpty) return null;
-    final timeRaw = map['time']?.toString();
-    final publishedAt = DateTime.tryParse(timeRaw ?? '') ?? DateTime.now();
-    var source = 'News';
-    final uri = Uri.tryParse(link);
-    if (uri != null && uri.hasAuthority) {
-      var host = uri.host.toLowerCase();
-      if (host.startsWith('www.')) host = host.substring(4);
-      if (host.isNotEmpty) source = host;
+    final map = row is Map<String, dynamic>
+        ? row
+        : Map<String, dynamic>.from(row);
+
+    final content = <String, dynamic>{};
+    if (map['content'] is Map) {
+      content.addAll(Map<String, dynamic>.from(map['content']));
     }
+    content.addAll(map);
+
+    var title = content['title']?.toString().trim() ?? '';
+    if (title.isEmpty) {
+      title = content['headline']?.toString().trim() ?? '';
+    }
+    title = _stripSurroundingQuotes(title);
+
+    final summary = content['summary']?.toString().trim();
+    final fallbackSummary = content['description']?.toString().trim();
+    final link =
+        content['link']?.toString().trim() ??
+        (content['clickThroughUrl'] is Map
+            ? content['clickThroughUrl']['url']?.toString().trim()
+            : null) ??
+        (content['canonicalUrl'] is Map
+            ? content['canonicalUrl']['url']?.toString().trim()
+            : null) ??
+        content['previewUrl']?.toString().trim() ??
+        '';
+
+    if (title.isEmpty) return null;
+
+    final timeRaw =
+        content['time']?.toString().trim() ??
+        content['displayTime']?.toString().trim() ??
+        content['pubDate']?.toString().trim();
+    final publishedAt = DateTime.tryParse(timeRaw ?? '') ?? DateTime.now();
+
+    var source = 'News';
+    if (content['provider'] is Map) {
+      final provider = Map<String, dynamic>.from(content['provider']);
+      source = provider['displayName']?.toString().trim() ?? source;
+    }
+    if (source.isEmpty) {
+      final uri = Uri.tryParse(link);
+      if (uri != null && uri.hasAuthority) {
+        var host = uri.host.toLowerCase();
+        if (host.startsWith('www.')) host = host.substring(4);
+        if (host.isNotEmpty) source = host;
+      }
+    }
+
     return StockNewsItem(
       headline: title,
-      source: source,
+      source: source.isNotEmpty ? source : 'News',
       publishedAt: publishedAt,
+      summary: summary?.isNotEmpty == true ? summary : fallbackSummary,
       url: link.isNotEmpty ? link : null,
     );
   }
@@ -604,12 +650,21 @@ class StockFundamentals {
     final cash = <CashFlowRow>[];
 
     if (financials != null) {
-      balance.addAll(_rowsFrom(financials['balance_sheet'],
-          (m) => BalanceSheetRow.fromJson(m)));
-      income.addAll(_rowsFrom(financials['income_statement'],
-          (m) => IncomeStatementRow.fromJson(m)));
-      cash.addAll(_rowsFrom(
-          financials['cash_flow'], (m) => CashFlowRow.fromJson(m)));
+      balance.addAll(
+        _rowsFrom(
+          financials['balance_sheet'],
+          (m) => BalanceSheetRow.fromJson(m),
+        ),
+      );
+      income.addAll(
+        _rowsFrom(
+          financials['income_statement'],
+          (m) => IncomeStatementRow.fromJson(m),
+        ),
+      );
+      cash.addAll(
+        _rowsFrom(financials['cash_flow'], (m) => CashFlowRow.fromJson(m)),
+      );
     }
 
     // Latest fiscal year first → handier for tables that read left-to-right
@@ -625,8 +680,9 @@ class StockFundamentals {
         financials['share_holders'] ?? financials['shareholders'],
       );
     }
-    shareholding ??=
-        info != null ? ShareholdingBreakdown.fromStockInfo(info) : null;
+    shareholding ??= info != null
+        ? ShareholdingBreakdown.fromStockInfo(info)
+        : null;
 
     return StockFundamentals(
       balanceSheet: balance,

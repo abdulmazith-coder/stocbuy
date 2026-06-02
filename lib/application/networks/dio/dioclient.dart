@@ -22,8 +22,7 @@ class DioClient {
 
   static bool _initialized = false;
 
-  static bool _skipAuth(RequestOptions o) =>
-      o.extra[extraKeySkipAuth] == true;
+  static bool _skipAuth(RequestOptions o) => o.extra[extraKeySkipAuth] == true;
 
   static NetworkController? get _net => Get.isRegistered<NetworkController>()
       ? Get.find<NetworkController>()
@@ -50,6 +49,25 @@ class DioClient {
       default:
         return false;
     }
+  }
+
+  static bool _isExpiredTokenError(DioException e) {
+    final status = e.response?.statusCode;
+    if (status == 401) return true;
+
+    if (status == 403) {
+      final data = e.response?.data;
+      final message = data is Map
+          ? data['message']?.toString().toLowerCase()
+          : data?.toString().toLowerCase();
+      if (message != null) {
+        return message.contains('token is expired') ||
+            message.contains('token_not_valid') ||
+            message.contains('access token') ||
+            message.contains('invalid token');
+      }
+    }
+    return false;
   }
 
   /// Attach interceptors once. Does not poll any API — periodic top-companies
@@ -89,7 +107,7 @@ class DioClient {
           final requestOptions = e.requestOptions;
           final alreadyRetried = requestOptions.extra['retried'] == true;
 
-          if (status == 401 &&
+          if ((status == 401 || _isExpiredTokenError(e)) &&
               !alreadyRetried &&
               !_skipAuth(requestOptions)) {
             final auth = Get.isRegistered<AuthController>()
@@ -109,10 +127,7 @@ class DioClient {
                     ...requestOptions.headers,
                     'Authorization': 'Bearer $newToken',
                   },
-                  extra: {
-                    ...requestOptions.extra,
-                    'retried': true,
-                  },
+                  extra: {...requestOptions.extra, 'retried': true},
                 ),
               );
               return handler.resolve(clone);
