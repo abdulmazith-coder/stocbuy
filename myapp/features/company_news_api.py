@@ -16,7 +16,6 @@ class CompanyNewsAPI(APIView):
         try:
             # Get query param
             stock_symbol = request.query_params.get('stock_symbol')
-            days = request.query_params.get('days')
 
             # Validation
             if not stock_symbol:
@@ -35,7 +34,7 @@ class CompanyNewsAPI(APIView):
             stock_data = ScrapingNewsData(stock_symbol)
 
             # ✅ Correct way to call async in Django
-            stock_news = async_to_sync(stock_data.scrapingNews)(f"when:{days}d")
+            stock_news = stock_data.scrapingNews() 
 
             # Empty data handling
             if not stock_news:
