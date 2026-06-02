@@ -1,44 +1,39 @@
+// ❌ இந்த import remove பண்ணு
+// import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+class APISConfigs {
+  static const String baseURL = "https://stocbuy.onrender.com/api/";
 
+  // AUTH
+  static const String signup        = "${baseURL}auth/signup/";
+  static const String verifySignup  = "${baseURL}auth/verify-signup/";
+  static const String resendOtp     = "${baseURL}auth/resend-otp/";
+  static const String login         = "${baseURL}auth/login/";
+  static const String logout        = "${baseURL}auth/logout/";
+  static const String refreshToken  = "${baseURL}auth/refresh/";
 
+  // AI
+  static const String aiAnalysis    = "${baseURL}features/ai-analysis/";
+  static const String aiUsage       = "${baseURL}features/ai-analysis-usage/";
+  static const String noramlChat    = "${baseURL}features/normal-chat/";
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
-class APISConfigs{
-  static String baseURL = dotenv.env['BASE_URL'] ?? "";
-
-// REGISTER
-  static String signup = dotenv.env['SIGNUP'] ?? "";
-  static String verifySignup = dotenv.env['VERIFY_SIGNUP'] ?? "";
-  static String resendOtp = dotenv.env['RESEND_OTP'] ?? "";
-  static String login = dotenv.env['LOGIN'] ?? "";
-  static String logout = dotenv.env['LOGOUT'] ?? "";
-  static String refreshToken = dotenv.env['REFRESH_TOKEN'] ?? "";
-
-// APP FEATURES 
-
-  static String aiAnalysis = dotenv.env['AI_ANALYSIS_URL'] ?? "";
-  static String aiUsage = dotenv.env['AI_USAGE_URL'] ?? "";
-  
-// STOCK DATAS 
-  static String stockInfo = dotenv.env['STOCK_INFO_URL'] ?? "";
-  static String financials = dotenv.env['STOCK_FINANCIALS_URL'] ?? "";
-  static String historicalData = dotenv.env['HISTORY_PRICE_URL'] ?? "";
-  static String one_minuteData = dotenv.env['ONE_MINUTE_PRICE_URL'] ?? "";
-  static String peers_companys = dotenv.env['PEERS_COMPANYS_URL'] ?? "";
-  static String news = dotenv.env['COMPANY_NEWS_URL'] ?? "";
-  static String targetPrice = dotenv.env['TRAGET_PRICE_URL'] ?? "";
-  static String ipos = dotenv.env['IPOS_URL'] ?? "";
-  static String index = dotenv.env['INDEX_URL'] ?? "";
-  static String indiaVIX = dotenv.env['INDIA_VIX'] ?? "";
-  static String marketStatus = dotenv.env['MARKET_STATUS'] ?? "";
-  static String marketBreadth = dotenv.env['MARKET_BREADTH'] ?? "";
-  static String marketRsi = dotenv.env['MARKET_RSI'] ?? "";
-  static String noramlChat  = dotenv.env['NORMAL_CHAT_URL'] ?? "";
-  static String stockFilter = dotenv.env['STOCK_FILTER'] ?? "";
-  static String searchStock = dotenv.env['STOCK_SEARCH'] ?? "";
-  static String topCompanies = dotenv.env['TOP_COMAPNIES'] ?? "";
-  static String topGainStocks = dotenv.env['TOP_GAIN_STOCKS'] ?? "";
-  static String topLossStocks = dotenv.env['TOP_LOSS_STOCKS'] ?? "";
-
+  // STOCK
+  static const String stockInfo     = "${baseURL}features/stock-info/";
+  static const String financials    = "${baseURL}features/stock-financial-data/";
+  static const String historicalData= "${baseURL}features/history-price/";
+  static const String one_minuteData= "${baseURL}features/1m-price-history/";
+  static const String peers_companys= "${baseURL}features/peers-companies/";
+  static const String news          = "${baseURL}features/company-news/";
+  static const String targetPrice   = "${baseURL}features/future-target/";
+  static const String ipos          = "${baseURL}features/ipos/";
+  static const String index         = "${baseURL}features/index-data/";
+  static const String indiaVIX      = "${baseURL}features/indiavix-data/";
+  static const String marketStatus  = "${baseURL}features/exchange-isactive/";
+  static const String marketBreadth = "${baseURL}features/market-breadth/";
+  static const String marketRsi     = "${baseURL}features/market-rsi/";
+  static const String stockFilter   = "${baseURL}features/penny-stock-filter/";
+  static const String searchStock   = "${baseURL}features/search-stock/";
+  static const String topCompanies  = "${baseURL}features/top-companies/";
+  static const String topGainStocks = "${baseURL}features/top-gain-stocks/";
+  static const String topLossStocks = "${baseURL}features/top-loss-stocks/";
 }

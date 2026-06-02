@@ -26,7 +26,6 @@ import 'package:stocbuy_application/application/themes/application_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
   tzdata.initializeTimeZones();
   // NetworkController must exist BEFORE DioClient.init() so the
   // interceptor's first request can already report online/offline.
