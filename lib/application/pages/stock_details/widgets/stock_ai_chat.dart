@@ -886,7 +886,7 @@ class _InputBarState extends State<_InputBar>
     ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
   }
 
-  Future<void> _initSpeech() async {
+  Future<bool> _initSpeech() async {
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
@@ -924,10 +924,12 @@ class _InputBarState extends State<_InputBar>
         },
       );
       if (mounted) setState(() {});
+      return _speechAvailable;
     } catch (e) {
       debugPrint('Speech initialization error: $e');
       _speechAvailable = false;
       if (mounted) setState(() {});
+      return false;
     }
   }
 
@@ -956,8 +958,7 @@ class _InputBarState extends State<_InputBar>
     if (_voiceState != _VoiceState.idle) return;
 
     if (!_speechInitialized) {
-      await _initSpeech();
-      _speechInitialized = true;
+      _speechInitialized = await _initSpeech();
     }
     if (!_speechAvailable) return;
 
@@ -1280,8 +1281,7 @@ class _SendVoiceButton extends StatelessWidget {
     if (voiceState == _VoiceState.processing) return null;
     if (voiceState == _VoiceState.listening) return onVoiceTap;
     if (canSend) return onSendTap;
-    if (speechAvailable) return onVoiceTap;
-    return null;
+    return onVoiceTap;
   }
 
   @override
