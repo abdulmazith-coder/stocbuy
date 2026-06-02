@@ -55,6 +55,26 @@ Future<void> openStockTradingView(
   );
 }
 
+String _resolveRouteSymbolFromPath(String routeBase, String? symbolFromParam) {
+  final candidate = symbolFromParam?.trim();
+  if (candidate != null && candidate.isNotEmpty) return candidate;
+
+  final uri = Uri.base;
+  final rawRoute = uri.fragment.isNotEmpty ? uri.fragment : uri.path;
+  final normalized = rawRoute.startsWith('/')
+      ? rawRoute.substring(1)
+      : rawRoute;
+  final path = normalized.split('?').first.trim();
+  if (path.isEmpty) return '';
+
+  final segments = path.split('/').where((segment) => segment.isNotEmpty);
+  final list = segments.toList();
+  if (list.length >= 2 && list[0] == routeBase.replaceFirst('/', '')) {
+    return list[1].trim();
+  }
+  return '';
+}
+
 /// Builder used by [GetMaterialApp.getPages].
 Widget stockTradingViewPageFromRoute() {
   final symbolFromParam = Get.parameters['symbol']?.trim() ?? '';
@@ -63,7 +83,12 @@ Widget stockTradingViewPageFromRoute() {
   if (args is StockTradingViewArgs && args.symbol.isNotEmpty) {
     effective = args;
   } else {
-    effective = StockTradingViewArgs(symbol: symbolFromParam);
+    effective = StockTradingViewArgs(
+      symbol: _resolveRouteSymbolFromPath(
+        stockTradingViewRouteBase,
+        symbolFromParam,
+      ),
+    );
   }
   return StockTradingViewPage(args: effective);
 }
@@ -110,17 +135,13 @@ class StockTradingViewPage extends StatelessWidget {
               Get.offAllNamed(AppRoutes.dashboard);
             }
           },
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppColors.darkblue,
-          ),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.darkblue),
         ),
         titleSpacing: 0,
         title: Row(
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.lightblue.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(6),
@@ -140,8 +161,7 @@ class StockTradingViewPage extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.surfaceMuted,
                 borderRadius: BorderRadius.circular(6),
@@ -183,10 +203,7 @@ class StockTradingViewPage extends StatelessWidget {
           ),
         ),
       ),
-      body: TradingViewChartView(
-        symbol: symbol,
-        exchange: exchange,
-      ),
+      body: TradingViewChartView(symbol: symbol, exchange: exchange),
     );
   }
 }

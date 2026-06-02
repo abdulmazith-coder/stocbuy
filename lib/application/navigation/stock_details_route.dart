@@ -59,11 +59,9 @@ Future<void> openStockDetails(
     return Get.toNamed(stockDetailsRouteFor(symbol), arguments: args) ??
         Future<void>.value();
   }
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => StockDetailsPage(args: args),
-    ),
-  );
+  return Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => StockDetailsPage(args: args)));
 }
 
 /// Same as above but takes a [TopCompany] directly — saves the caller from
@@ -78,6 +76,26 @@ Future<void> openStockDetailsForCompany(BuildContext context, TopCompany c) {
   );
 }
 
+String _resolveRouteSymbol(String routeBase, String? symbolFromParam) {
+  final candidate = symbolFromParam?.trim();
+  if (candidate != null && candidate.isNotEmpty) return candidate;
+
+  final uri = Uri.base;
+  final rawRoute = uri.fragment.isNotEmpty ? uri.fragment : uri.path;
+  final normalized = rawRoute.startsWith('/')
+      ? rawRoute.substring(1)
+      : rawRoute;
+  final path = normalized.split('?').first.trim();
+  if (path.isEmpty) return '';
+
+  final segments = path.split('/').where((segment) => segment.isNotEmpty);
+  final list = segments.toList();
+  if (list.length >= 2 && list[0] == routeBase.replaceFirst('/', '')) {
+    return list[1].trim();
+  }
+  return '';
+}
+
 /// Builder used by [GetMaterialApp.getPages] so the route can read both the
 /// path parameter (`:symbol`) AND the typed [StockDetailsArgs] if passed.
 Widget stockDetailsPageFromRoute() {
@@ -87,7 +105,9 @@ Widget stockDetailsPageFromRoute() {
   if (args is StockDetailsArgs && args.symbol.isNotEmpty) {
     effective = args;
   } else {
-    effective = StockDetailsArgs(symbol: symbolFromParam);
+    effective = StockDetailsArgs(
+      symbol: _resolveRouteSymbol(stockDetailsRouteBase, symbolFromParam),
+    );
   }
   return StockDetailsPage(args: effective);
 }
