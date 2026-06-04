@@ -88,20 +88,57 @@ class NSEExchangeApis:
 
 
     def get_top_gains_stocks(self):
-        list_of_stocks_nse = []
-        list_of_stocks_bse = []
-        list_of_stocks = []
         url = os.getenv("NSE_TOP_GAINS_STOCKS_URL")
+
         data = self._get_request(url)
-        for item in data["NIFTY"]["data"]:
-            Nse_exchange = yf.Ticker(f"{item['symbol']}.NS")
-            bse_exchange = yf.Ticker(f"{item['symbol']}.BO")
-            if Nse_exchange:
-                list_of_stocks_nse.append(Nse_exchange.info)
-            if bse_exchange:
-                list_of_stocks_bse.append(bse_exchange.info)
-        list_of_stocks.append({"nse": list_of_stocks_nse, "bse": list_of_stocks_bse})
-        return list_of_stocks
+
+        if not data:return {
+            "success": False,
+            "message": "Unable to fetch top gainers",
+            "data": []
+        }
+
+        stocks = []
+
+        try:
+            for item in data.get("NIFTY", {}).get("data", [])[:10]:
+                symbol = item.get("symbol")
+
+            try:
+                ticker = yf.Ticker(f"{symbol}.NS")
+
+                fast_info = dict(ticker.fast_info)
+
+                stocks.append({
+                    "symbol": symbol,
+                    "change": item.get("change"),
+                    "pChange": item.get("pChange"),
+                    "lastPrice": item.get("lastPrice"),
+                    "marketCap": fast_info.get("market_cap"),
+                    "currency": fast_info.get("currency"),
+                    "dayHigh": fast_info.get("day_high"),
+                    "dayLow": fast_info.get("day_low"),
+                })
+
+            except Exception as stock_error:
+                logger.error(
+                    f"Yahoo error for {symbol}: {stock_error}"
+                )
+
+            return {
+            "success": True,
+            "message": "Top gainers fetched successfully",
+            "data": stocks
+        }
+
+        except Exception as e:
+            logger.error(f"Top gainers error: {str(e)}")
+
+            return {
+            "success": False,
+            "message": str(e),
+            "data": []
+        }
 
     
     def get_top_losers_stocks(self):
