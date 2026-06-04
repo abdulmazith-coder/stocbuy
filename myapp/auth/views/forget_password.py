@@ -3,8 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from myapp.auth.models import *
 from myapp.auth.otp_generate import generate_otp, hash_otp, send_otp
+from rest_framework.permissions import AllowAny
+
 
 class ForgetPasswordView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email')
         otp = request.data.get('otp')

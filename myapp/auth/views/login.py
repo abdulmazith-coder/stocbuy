@@ -4,10 +4,13 @@ from rest_framework import status
 from myapp.auth.models import *
 from django.contrib.auth import authenticate,login,get_user_model,logout
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
+
 
 User = get_user_model()
 
 class LoginView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')

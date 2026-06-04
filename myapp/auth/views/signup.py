@@ -5,9 +5,10 @@ from django.utils import timezone
 from myapp.auth.models import Users, Otp
 from myapp.auth.otp_generate import generate_otp, hash_otp, send_otp
 from myapp.auth.permission import FREE_DAILY_LIMIT
-
+from rest_framework.permissions import AllowAny
 
 class SignupView(APIView):
+    permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get('email')

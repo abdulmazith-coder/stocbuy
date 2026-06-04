@@ -4,8 +4,10 @@ from rest_framework import status
 from django.utils import timezone
 from myapp.auth.models import *
 from myapp.auth.otp_generate import generate_otp, hash_otp, send_otp
+from rest_framework.permissions import AllowAny
 
 class ResendOtpView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email')
         if not email:

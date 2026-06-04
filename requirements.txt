@@ -18,3 +18,4 @@ whitenoise
 dj-database-url
 groq
 sib-api-v3-sdk
+django-axes
