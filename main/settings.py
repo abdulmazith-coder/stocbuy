@@ -31,18 +31,13 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["web-production-7d487.up.railway.app",]
+ALLOWED_HOSTS = ["web-production-7d487.up.railway.app","stocbuy.pages.dev"]
 
 #  "stocbuy.onrender.com",
 #     "stocbuy.pages.dev",
 
 AUTH_USER_MODEL = 'myapp.Users'
 
-
-CSRF_TRUSTED_ORIGINS = [
-    "web-production-7d487.up.railway.app",
-    "stocbuy.pages.dev",
-]
 
 # Application definition
 
@@ -81,7 +76,7 @@ AUTHENTICATION_BACKENDS = [
 
 
 CORS_ALLOWED_ORIGINS = [
-    "https://stocbuy.pages.dev", 
+    "stocbuy.pages.dev", 
 ]
 
 
