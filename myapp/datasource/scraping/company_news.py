@@ -31,8 +31,8 @@ class ScrapingNewsData:
 
 
 
-a = ScrapingNewsData(companyName="TCS")
-value = a.scrapingNews()
-print(value)
+# a = ScrapingNewsData(companyName="TCS")
+# value = a.scrapingNews()
+# print(value)
 
 # return news_data if news_data else None
