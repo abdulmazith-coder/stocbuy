@@ -289,23 +289,23 @@ class AnalysisStatement:
     # ─────────────────────────────────────────────────────────
 
     async def _stream_ai(
-        self,
-        analysis_type,
-        label,
-        ai_callable,
-        *ai_args,
-    ):
+    self,
+    analysis_type,
+    label,
+    ai_callable,
+    *ai_args,):
+        
         pq = asyncio.Queue()
 
         async with self.ai_semaphore:
             ai_task = asyncio.create_task(
-                _run_ai(
-                    ai_callable,
-                    *ai_args,
-                    progress_queue=pq,
-                    analysis_type=analysis_type,
-                )
+            _run_ai(
+                ai_callable,
+                *ai_args,
+                progress_queue=pq,
+                analysis_type=analysis_type,
             )
+        )
 
             while not ai_task.done():
                 try:
@@ -313,12 +313,26 @@ class AnalysisStatement:
                     yield msg
                 except asyncio.TimeoutError:
                     yield {
-                        "status":  "processing",
-                        "message": f"AI is still working on {label}...",
-                    }
+                    "status": "processing",
+                    "message": f"AI is still working on {label}...",
+                }
 
-            result = await ai_task
-            yield {"__result__": result}
+            try:
+                result = await ai_task
+
+                print(f"[AI RESULT] {analysis_type}: {result}")
+
+                yield {
+                "__result__": result
+            }
+
+            except Exception as e:
+                print(f"[AI ERROR] {analysis_type}: {e}")
+
+                yield {
+                "status": "error",
+                "message": str(e),
+            }
 
     # ─────────────────────────────────────────────────────────
     # CACHE-AWARE SINGLE ANALYSIS
@@ -704,6 +718,11 @@ class AnalysisStatement:
             async for item in self._stream_ai(label, label, ai_fn, *args):
                 if "__result__" in item:
                     result = item["__result__"]
+                    yield {
+            "status": "success",
+            "analysis_type": label,
+            "data": result,
+        }
                 else:
                     yield item
 

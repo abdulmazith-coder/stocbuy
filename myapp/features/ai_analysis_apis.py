@@ -53,7 +53,15 @@ class AiAnalysisAPI(APIView):
                 break
             yield f"data: {json.dumps(item)}\n\n"
 
-        thread.join()
+        while True:
+            item = result_queue.get()
+
+            if item is _SENTINEL:
+                break
+
+            print("SSE SEND:", item)
+
+            yield f"data: {json.dumps(item)}\n\n"
 
         # ── Send usage as final SSE event ─────────────────────────────────
         today = timezone.now().date()
