@@ -25,13 +25,6 @@ class Users(AbstractUser):
     feature_filter_large = models.BooleanField(default=False)
     feature_filter_growth = models.BooleanField(default=False)
     feature_analysis_unlimited = models.BooleanField(default=False)
-    # In ContactRequest model — add this field
-    requested_analysis_limit = models.IntegerField(
-    null=True,
-    blank=True,
-    help_text="The higher limit the user is requesting. Null means no change requested.",
-)
-
     first_name = None
     last_name = None
 
@@ -93,6 +86,13 @@ class ContactRequest(models.Model):
     request_filter_large = models.BooleanField(default=False)
     request_filter_growth = models.BooleanField(default=False)
     request_analysis_unlimited = models.BooleanField(default=False)
+        # In ContactRequest model — add this field
+    requested_analysis_limit = models.IntegerField(
+    null=True,
+    blank=True,
+    help_text="The higher limit the user is requesting. Null means no change requested.",
+)
+
 
     extra_info = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
