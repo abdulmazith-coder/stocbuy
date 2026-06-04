@@ -65,17 +65,28 @@ class ContactUsView(APIView):
         if user_account.is_premium_expired():
             user_account.expire_premium()
             ContactRequest.objects.filter(email=email).delete()
+        else:
+            # Check for an existing contact request and its status
+            existing_request = ContactRequest.objects.filter(email=email).first()
 
-        # Block duplicate requests for free users
-        elif ContactRequest.objects.filter(email=email).exists():
-            return Response(
-                {
-                    'error': 'A request has already been submitted for this email address. '
-                             'Our team will get back to you soon.',
-                    'action': 'duplicate',
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
+            if existing_request:
+                # Block if request is still pending
+                if existing_request.status == 'pending':
+                    return Response(
+                        {
+                            'error': 'Your request is currently pending review. '
+                                     'Please wait for our team to get back to you.',
+                            'action': 'pending',
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+                # Allow re-submission if request was approved (user wants to upgrade again)
+                if existing_request.status == 'approved':
+                    # Delete the old approved request so a fresh one can be created
+                    existing_request.delete()
+
+                # If status is something else (e.g. 'rejected'), fall through and allow re-submission
 
         # Calculate AI analysis usage
         today = timezone.now().date()
@@ -98,6 +109,7 @@ class ContactUsView(APIView):
             request_filter_growth=req_growth,
             request_analysis_unlimited=req_analysis_unlimited,
             user=user_account,
+            status='pending',  # Always start as pending
         )
 
         contact.save()
