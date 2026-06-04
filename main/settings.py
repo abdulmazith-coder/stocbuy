@@ -73,10 +73,13 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://web-production-7d487.up.railway.app",
+    "https://stocbuy.pages.dev",
+]
 
 CORS_ALLOWED_ORIGINS = [
-    "stocbuy.pages.dev", 
+    "https://stocbuy.pages.dev", 
 ]
 
 
@@ -206,4 +209,4 @@ CSRF_COOKIE_SECURE = False
 
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = (True,)
+SECURE_HSTS_PRELOAD = True
