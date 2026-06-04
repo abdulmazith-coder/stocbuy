@@ -31,10 +31,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [
-    "web-production-7d487.up.railway.app",
-    "https://stocbuy.pages.dev",
-]
+ALLOWED_HOSTS = ["web-production-7d487.up.railway.app",]
 
 #  "stocbuy.onrender.com",
 #     "stocbuy.pages.dev",
@@ -42,6 +39,10 @@ ALLOWED_HOSTS = [
 AUTH_USER_MODEL = 'myapp.Users'
 
 
+CSRF_TRUSTED_ORIGINS = [
+    "web-production-7d487.up.railway.app",
+    "stocbuy.pages.dev",
+]
 
 # Application definition
 
@@ -203,9 +204,9 @@ SECURE_REFERRER_POLICY = "same-origin"
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
 
 SECURE_HSTS_SECONDS = 31536000
