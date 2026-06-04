@@ -32,6 +32,18 @@ class ContactUsView(APIView):
         req_growth             = bool(data.get('request_filter_growth', False))
         req_analysis_unlimited = bool(data.get('request_analysis_unlimited', False))
 
+        # The new limit the user is requesting (optional, must be a positive int)
+        requested_limit_raw = data.get('requested_analysis_limit')
+        try:
+            requested_analysis_limit = int(requested_limit_raw) if requested_limit_raw is not None else None
+            if requested_analysis_limit is not None and requested_analysis_limit <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'requested_analysis_limit must be a positive integer.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not email:
             return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
         if not phone:
@@ -66,12 +78,10 @@ class ContactUsView(APIView):
             user_account.expire_premium()
             ContactRequest.objects.filter(email=email).delete()
         else:
-            # Check for an existing contact request and its status
             existing_request = ContactRequest.objects.filter(email=email).first()
 
             if existing_request:
-                # Block if request is still pending
-                if existing_request.status == 'pending':
+                if existing_request.status == ContactRequest.STATUS_PENDING:
                     return Response(
                         {
                             'error': 'Your request is currently pending review. '
@@ -81,35 +91,57 @@ class ContactUsView(APIView):
                         status=status.HTTP_409_CONFLICT,
                     )
 
-                # Allow re-submission if request was approved (user wants to upgrade again)
-                if existing_request.status == 'approved':
-                    # Delete the old approved request so a fresh one can be created
+                if existing_request.status == ContactRequest.STATUS_APPROVED:
+                    # Merge previously approved filters with newly requested ones
+                    req_penny              = req_penny or existing_request.request_filter_penny
+                    req_mid                = req_mid or existing_request.request_filter_mid
+                    req_large              = req_large or existing_request.request_filter_large
+                    req_growth             = req_growth or existing_request.request_filter_growth
+                    req_analysis_unlimited = req_analysis_unlimited or existing_request.request_analysis_unlimited
                     existing_request.delete()
 
-                # If status is something else (e.g. 'rejected'), fall through and allow re-submission
+                # If rejected → fall through and allow fresh re-submission
 
-        # Calculate AI analysis usage
+        # ── Limit tracking ──────────────────────────────────────────────
         today = timezone.now().date()
         FREE_DAILY_LIMIT = 3
+
+        # Current limit: whatever the admin has set (or the free default)
+        current_limit = max(user_account.ai_analysis_daily_limit, FREE_DAILY_LIMIT)
+
+        # Requested limit: what the user is asking for.
+        # Must be greater than their current limit to make sense.
+        if requested_analysis_limit is not None and requested_analysis_limit <= current_limit:
+            return Response(
+                {
+                    'error': f'requested_analysis_limit must be greater than your '
+                             f'current limit of {current_limit}.',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         used_today = AiAnalysisRecord.objects.filter(
             user=user_account,
             date=today,
         ).count()
+        # ────────────────────────────────────────────────────────────────
 
-        # Create the contact request
         contact = ContactRequest.objects.create(
             email=email,
             phone=phone,
+            # Current state
             ai_analysis_used=used_today,
-            ai_analysis_limit=FREE_DAILY_LIMIT,
-            ai_analysis_remaining=max(0, FREE_DAILY_LIMIT - used_today),
+            ai_analysis_limit=current_limit,                        # user's current limit
+            ai_analysis_remaining=max(0, current_limit - used_today),
+            # What the user wants
+            requested_analysis_limit=requested_analysis_limit,      # user's requested new limit (nullable)
             request_filter_penny=req_penny,
             request_filter_mid=req_mid,
             request_filter_large=req_large,
             request_filter_growth=req_growth,
             request_analysis_unlimited=req_analysis_unlimited,
             user=user_account,
-            status='pending',  # Always start as pending
+            status=ContactRequest.STATUS_PENDING,
         )
 
         contact.save()
@@ -117,6 +149,8 @@ class ContactUsView(APIView):
             {
                 'success': True,
                 'message': 'Request submitted. We will contact you soon.',
+                'current_analysis_limit': current_limit,
+                'requested_analysis_limit': requested_analysis_limit,
             },
             status=status.HTTP_201_CREATED,
         )
