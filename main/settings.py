@@ -31,10 +31,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [
-    "stocbuy.onrender.com",
-    "stocbuy.pages.dev",
-]
+ALLOWED_HOSTS = ["*"]
+
+#  "stocbuy.onrender.com",
+#     "stocbuy.pages.dev",
 
 AUTH_USER_MODEL = 'myapp.Users'
 
