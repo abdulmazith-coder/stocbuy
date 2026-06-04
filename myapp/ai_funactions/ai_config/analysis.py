@@ -45,7 +45,6 @@ from myapp.datasource.scraping.company_news import ScrapingNewsData
 
 CACHE_HOURS = 24
 
-# Analysis type keys — used as DB keys and route keys
 BALANCE_SHEET      = "balance_sheet"
 INCOME_STATEMENT   = "income_statement"
 CASH_FLOW          = "cash_flow"
@@ -91,10 +90,8 @@ class SavingResponse:
         within 24 h gets the stored response immediately.
       • After 24 h the record is considered expired → AI re-runs,
         result overwrites the existing row, timer resets.
-      • This means ALL users share the same cache entry per stock.
+      • ALL users share the same cache entry per stock.
     """
-
-    # ─────────────────────────────────────────────────────────
 
     @staticmethod
     async def get_cached_response(
@@ -103,13 +100,11 @@ class SavingResponse:
     ):
         """
         Returns:
-          None                          – no row in DB at all
-          {"cached": True,
-           "expired": False,
-           "response": <data>}          – fresh (< 24 h)
-          {"cached": True,
-           "expired": True,
-           "response": <data>}          – stale (≥ 24 h), needs refresh
+          None                               – no row in DB
+          {"cached": True, "expired": False,
+           "response": <data>}               – fresh (< 24 h)
+          {"cached": True, "expired": True,
+           "response": <data>}               – stale (≥ 24 h)
         """
         try:
             obj = await sync_to_async(
@@ -122,9 +117,8 @@ class SavingResponse:
             if not obj:
                 return None
 
-            now  = timezone.now()
-            diff = now - obj.updated_at if obj.updated_at else timedelta(days=999)
-
+            now     = timezone.now()
+            diff    = now - obj.updated_at if obj.updated_at else timedelta(days=999)
             expired = diff >= timedelta(hours=CACHE_HOURS)
 
             return {
@@ -136,8 +130,6 @@ class SavingResponse:
         except Exception as e:
             print(f"[CACHE GET ERROR] ({stock_symbol}/{analysis_type}):", e)
             return None
-
-    # ─────────────────────────────────────────────────────────
 
     @staticmethod
     async def save_response(
@@ -166,7 +158,6 @@ class SavingResponse:
             return ai_data
 
         except IntegrityError:
-            # Race condition: another request created the row first → just return
             obj = await sync_to_async(
                 AIResponse.objects.filter(
                     stock_symbol=stock_symbol,
@@ -285,27 +276,28 @@ class AnalysisStatement:
         return await _run_in_thread(_fetch_all_yfinance, self.ticker)
 
     # ─────────────────────────────────────────────────────────
-    # CORE STREAM WRAPPER  (yields progress dicts + __result__)
+    # CORE STREAM WRAPPER
     # ─────────────────────────────────────────────────────────
 
     async def _stream_ai(
-    self,
-    analysis_type,
-    label,
-    ai_callable,
-    *ai_args,):
-        
+        self,
+        analysis_type,
+        label,
+        ai_callable,
+        *ai_args,
+    ):
         pq = asyncio.Queue()
 
         async with self.ai_semaphore:
+            # ✅ Task created INSIDE semaphore — properly rate-limited
             ai_task = asyncio.create_task(
-            _run_ai(
-                ai_callable,
-                *ai_args,
-                progress_queue=pq,
-                analysis_type=analysis_type,
+                _run_ai(
+                    ai_callable,
+                    *ai_args,
+                    progress_queue=pq,
+                    analysis_type=analysis_type,
+                )
             )
-        )
 
             while not ai_task.done():
                 try:
@@ -313,34 +305,20 @@ class AnalysisStatement:
                     yield msg
                 except asyncio.TimeoutError:
                     yield {
-                    "status": "processing",
-                    "message": f"AI is still working on {label}...",
-                }
+                        "status":  "processing",
+                        "message": f"AI is still working on {label}...",
+                    }
 
             try:
                 result = await ai_task
-
                 print(f"[AI RESULT] {analysis_type}: {result}")
-
-                yield {
-                "__result__": result
-            }
-
+                yield {"__result__": result}
             except Exception as e:
                 print(f"[AI ERROR] {analysis_type}: {e}")
-
-                yield {
-                "status": "error",
-                "message": str(e),
-            }
+                yield {"status": "error", "message": str(e)}
 
     # ─────────────────────────────────────────────────────────
     # CACHE-AWARE SINGLE ANALYSIS
-    #
-    # Flow:
-    #   1. Check DB cache for (stock_symbol, analysis_type)
-    #   2a. Fresh cache  → yield cached result immediately, return
-    #   2b. Stale / miss → run AI, save result to DB, yield result
     # ─────────────────────────────────────────────────────────
 
     async def _cached_single_analysis(
@@ -352,7 +330,7 @@ class AnalysisStatement:
         system_prompt,
         response_key: str,
     ):
-        # ── 1. Cache check ──────────────────────────────────
+        # ── 1. Cache check ───────────────────────────────────
         cached = await SavingResponse.get_cached_response(
             self.stock_symbol, analysis_type
         )
@@ -365,7 +343,7 @@ class AnalysisStatement:
             }
             return
 
-        # ── 2. Validate + clean raw data ────────────────────
+        # ── 2. Validate + clean raw data ─────────────────────
         if hasattr(statement_data, "empty") and statement_data.empty:
             yield {"status": "error", "message": f"{analysis_type} data is empty"}
             return
@@ -481,21 +459,20 @@ class AnalysisStatement:
             yield item
 
     # ─────────────────────────────────────────────────────────
-    # FINANCIAL RATIOS  (uses aiAnalysis_2 + info dict directly)
+    # FINANCIAL RATIOS
     # ─────────────────────────────────────────────────────────
 
     async def analysisFinancialRatios(self):
         yield {"status": "processing", "message": "Fetching financial ratios..."}
 
-        # ── Cache check ──────────────────────────────────────
         cached = await SavingResponse.get_cached_response(
             self.stock_symbol, FINANCIAL_RATIOS
         )
         if cached and not cached["expired"]:
             yield {
-                "status":          "success",
-                "cached":          True,
-                FINANCIAL_RATIOS:  cached["response"],
+                "status":         "success",
+                "cached":         True,
+                FINANCIAL_RATIOS: cached["response"],
             }
             return
 
@@ -533,7 +510,6 @@ class AnalysisStatement:
     async def analysisNews(self):
         yield {"status": "processing", "message": "Fetching latest news..."}
 
-        # ── Cache check ──────────────────────────────────────
         cached = await SavingResponse.get_cached_response(
             self.stock_symbol, NEWS
         )
@@ -574,14 +550,6 @@ class AnalysisStatement:
 
     # ─────────────────────────────────────────────────────────
     # FULL ANALYSIS
-    #
-    # Strategy:
-    #   • Check individual cache for every sub-analysis first.
-    #   • Run AI only for sub-analyses that are missing / expired.
-    #   • Save each sub-result to DB individually.
-    #   • Check full_analysis cache for the final combined result.
-    #   • Run final AI only if full_analysis is expired / missing.
-    #   • Save final result to DB.
     # ─────────────────────────────────────────────────────────
 
     async def analysisTheStock(self, analysis_type):
@@ -601,7 +569,7 @@ class AnalysisStatement:
             }
             return
 
-        # ── Fetch raw data ───────────────────────────────────
+        # ── Fetch raw data ────────────────────────────────────
         yield {"status": "processing", "message": "Fetching stock data..."}
         try:
             yf_data = await self._fetch_yf()
@@ -625,7 +593,7 @@ class AnalysisStatement:
             yield {"status": "error", "message": "Stock info empty"}
             return
 
-        # ── Clean raw dataframes ─────────────────────────────
+        # ── Clean raw dataframes ──────────────────────────────
         cleaned  = {}
         datasets = [
             (BALANCE_SHEET,    balance_sheet_raw),
@@ -646,10 +614,7 @@ class AnalysisStatement:
         ctx       = self._company_context(info_data)
         collected = {}
 
-        # ─────────────────────────────────────────────────────
-        # Sub-analysis job definitions
-        # Each tuple:  (analysis_type_key, ai_fn, *ai_args)
-        # ─────────────────────────────────────────────────────
+        # ── Sub-analysis job definitions ──────────────────────
         ai_jobs = [
             (
                 BALANCE_SHEET,
@@ -690,24 +655,23 @@ class AnalysisStatement:
             ),
         ]
 
-        # ── Run each sub-analysis (cache-aware) ──────────────
+        # ── Run each sub-analysis (cache-aware) ───────────────
         for (label, ai_fn, *args) in ai_jobs:
 
-            # Check individual cache first
             sub_cached = await SavingResponse.get_cached_response(
                 self.stock_symbol, label
             )
 
             if sub_cached and not sub_cached["expired"]:
-                # ✅ Fresh cache hit — no AI call needed
                 collected[label] = sub_cached["response"]
                 yield {
-                    "status":  "processing",
-                    "message": f"{label} loaded from cache",
+                    "status":        "success",
+                    "cached":        True,
+                    "analysis_type": label,
+                    "data":          sub_cached["response"],
                 }
                 continue
 
-            # Cache miss or stale → run AI
             yield {
                 "status":  "processing",
                 "message": f"Running {label} analysis...",
@@ -719,22 +683,24 @@ class AnalysisStatement:
                 if "__result__" in item:
                     result = item["__result__"]
                     yield {
-            "status": "success",
-            "analysis_type": label,
-            "data": result,
-        }
+                        "status":        "success",
+                        "cached":        False,
+                        "analysis_type": label,
+                        "data":          result,
+                    }
                 else:
                     yield item
 
             collected[label] = result
 
-            # 💾 Save individual sub-result to DB
             if result:
                 await SavingResponse.save_response(
                     self.stock_symbol, label, result
                 )
 
         # ── Final combined analysis ───────────────────────────
+        yield {"status": "processing", "message": "Running final combined analysis..."}
+
         final_response = None
 
         final_prompt = (
@@ -759,7 +725,7 @@ class AnalysisStatement:
             else:
                 yield item
 
-        # ── Assemble final data dict ──────────────────────────
+        # ── Assemble + save final data ────────────────────────
         final_data = {
             BALANCE_SHEET:    collected.get(BALANCE_SHEET),
             INCOME_STATEMENT: collected.get(INCOME_STATEMENT),
@@ -770,7 +736,6 @@ class AnalysisStatement:
             FINAL_ANALYSIS:   final_response,
         }
 
-        # 💾 Save full combined result to DB
         await SavingResponse.save_response(
             self.stock_symbol, FULL_ANALYSIS, final_data
         )

@@ -47,20 +47,12 @@ class AiAnalysisAPI(APIView):
         thread = threading.Thread(target=_thread, daemon=True)
         thread.start()
 
+        # ── Single loop: yield every item, stop on sentinel ───────────────
         while True:
             item = result_queue.get()
             if item is _SENTINEL:
                 break
-            yield f"data: {json.dumps(item)}\n\n"
-
-        while True:
-            item = result_queue.get()
-
-            if item is _SENTINEL:
-                break
-
             print("SSE SEND:", item)
-
             yield f"data: {json.dumps(item)}\n\n"
 
         # ── Send usage as final SSE event ─────────────────────────────────
@@ -92,7 +84,7 @@ class AiAnalysisAPI(APIView):
                 status=400,
             )
 
-        # ── Check daily limit (AI analysis costs 1) ───────────────────────
+        # ── Check daily limit ─────────────────────────────────────────────
         check = can_request_analysis(request.user, stock_symbol.strip().upper(), cost=1)
         if not check['allowed']:
             return Response(
@@ -106,7 +98,7 @@ class AiAnalysisAPI(APIView):
                 status=403,
             )
 
-        # ── Record the analysis (costs 1) ─────────────────────────────────
+        # ── Record the analysis ───────────────────────────────────────────
         record_analysis(request.user, stock_symbol.strip().upper(), cost=1)
 
         # ── Stream response ───────────────────────────────────────────────
