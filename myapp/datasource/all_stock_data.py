@@ -222,33 +222,31 @@ class StockData:
 
     @staticmethod
     def is_market_open(symbol: str, exchange: str):
-        """
-        NSE/BSE market status checker.
-        Holidays are auto-detected from ^NSEI historical + live data.
-        JSON output structure is unchanged.
-        """
         try:
             IST = pytz.timezone("Asia/Kolkata")
             now = datetime.now(IST)
             today = now.date()
 
-            market_open  = time(9, 15)
+            market_open = time(9, 15)
             market_close = time(15, 30)
+            current_time = now.time()
 
-            is_weekday = now.weekday() < 5
-            in_hours   = market_open <= now.time() <= market_close
+        # ─── Core Market Status Logic ────────────────────────────────────
+            is_weekday = now.weekday() < 5  # Monday=0, Friday=4
+            in_hours = market_open <= current_time <= market_close
 
-            # Auto-detect holiday (skipped on weekends to save API calls)
+        # Auto-detect holiday from actual NSE trading data
             is_holiday = (
-                StockData._detect_holiday(today, now)
-                if is_weekday else False
-            )
+            StockData._detect_holiday_nsei(today)
+            if is_weekday else False
+        )
 
-            is_open = is_weekday and not is_holiday and in_hours
+        # Final market status
+            is_open = is_weekday and in_hours and not is_holiday
 
             formatted_time = now.strftime("%d-%m-%Y %I:%M:%S %p")
 
-            # Yahoo Finance — supplementary metadata only
+        # ─── Yahoo Finance — supplementary metadata only ────────────────
             info = {}
             try:
                 info = yf.Ticker(symbol).info or {}
@@ -257,30 +255,54 @@ class StockData:
 
             raw_state = info.get("marketState", "UNKNOWN")
             clean_map = {
-                "POSTPOST":      "POST",
-                "POST POST":     "POST",
-                "PREPRE":        "PRE",
-                "REGULAREGULAR": "OPEN",
-            }
+            "POSTPOST": "POST",
+            "POST POST": "POST",
+            "PREPRE": "PRE",
+            "REGULAREGULAR": "OPEN",
+            "REGULAR": "OPEN",
+            "PRE": "PRE",
+            "POST": "POST",
+        }
             yahoo_state = clean_map.get(raw_state, raw_state)
 
-            # ── Same JSON structure as before ─────────────────────────────────
+        # ─── Return same JSON structure (backend compatible) ─────────────
             return {
-                "is_active":          "OPEN" if is_open else "CLOSED",
-                "yahoo_state":        yahoo_state,
-                "market_time":        formatted_time,
-                "market_open_time":   "09:15 AM IST",
-                "market_close_time":  "03:30 PM IST",
-                "is_weekday":         is_weekday,
-                "is_holiday":         is_holiday,        # new — additive only
-                "exchange":           info.get("exchange", exchange),
-            }
+            "is_active": "OPEN" if is_open else "CLOSED",
+            "yahoo_state": yahoo_state,
+            "market_time": formatted_time,
+            "market_open_time": "09:15 AM IST",
+            "market_close_time": "03:30 PM IST",
+            "is_weekday": is_weekday,
+            "is_holiday": is_holiday,
+            "exchange": info.get("exchange", exchange),
+        }
 
         except Exception as e:
             return {
-                "is_active": "ERROR",
-                "error": str(e),
-            }
+            "is_active": "ERROR",
+            "error": str(e),
+        }
+
+
+    @staticmethod
+    def _detect_holiday_nsei(check_date):
+        try:
+        # Check last 90 days of trading data
+            end_date = check_date + timedelta(days=1)
+            start_date = check_date - timedelta(days=90)
+
+            nsei = yf.Ticker("^NSEI")
+            hist = nsei.history(start=start_date, end=end_date)
+
+        # If date not in trading data = it's a holiday
+            if hist is None or hist.empty or check_date not in hist.index.date:
+                return True
+
+            return False
+
+        except Exception as e:
+        # Fallback: If API fails, assume NOT a holiday (safe for trading)
+            return False
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  SEBI Register
