@@ -99,6 +99,9 @@ String _readableText(AiChatMessage msg) {
 }
 
 // ── Indian languages ──────────────────────────────────────────────────────────
+// FIX: Raised all speechRate values to 0.58–0.65 for natural human-like reading.
+// FIX: Each language now has carefully chosen ttsLocale + fallback to ensure
+//      correct pronunciation engine is selected on the device.
 
 class IndianLanguage {
   const IndianLanguage({
@@ -117,11 +120,12 @@ class IndianLanguage {
   final String? speechLocale;
   final String? ttsLocale;
   final String? fallbackTtsLocale;
-  // Per-language TTS tuning for clear pronunciation
   final double? speechRate;
   final double? pitch;
 }
 
+// Normal human reading pace ≈ 0.60–0.65.
+// Indic scripts need slightly more time ≈ 0.55–0.60 for clear syllables.
 const List<IndianLanguage> kIndianLanguages = [
   IndianLanguage(
       code: 'en',
@@ -129,7 +133,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'English',
       speechLocale: 'en-US',
       ttsLocale: 'en-US',
-      speechRate: 0.50,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.62,
       pitch: 1.0),
   IndianLanguage(
       code: 'hi',
@@ -137,8 +142,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'हिंदी',
       speechLocale: 'hi-IN',
       ttsLocale: 'hi-IN',
-      fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'bn',
@@ -146,8 +151,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'বাংলা',
       speechLocale: 'bn-IN',
       ttsLocale: 'bn-IN',
-      fallbackTtsLocale: 'bn-IN',
-      speechRate: 0.40,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.57,
       pitch: 1.0),
   IndianLanguage(
       code: 'te',
@@ -155,8 +160,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'తెలుగు',
       speechLocale: 'te-IN',
       ttsLocale: 'te-IN',
-      fallbackTtsLocale: 'te-IN',
-      speechRate: 0.38,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.56,
       pitch: 1.0),
   IndianLanguage(
       code: 'mr',
@@ -165,7 +170,7 @@ const List<IndianLanguage> kIndianLanguages = [
       speechLocale: 'mr-IN',
       ttsLocale: 'mr-IN',
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'ta',
@@ -173,8 +178,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'தமிழ்',
       speechLocale: 'ta-IN',
       ttsLocale: 'ta-IN',
-      fallbackTtsLocale: 'ta-IN',
-      speechRate: 0.38,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.56,
       pitch: 1.0),
   IndianLanguage(
       code: 'gu',
@@ -183,7 +188,7 @@ const List<IndianLanguage> kIndianLanguages = [
       speechLocale: 'gu-IN',
       ttsLocale: 'gu-IN',
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'kn',
@@ -191,8 +196,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'ಕನ್ನಡ',
       speechLocale: 'kn-IN',
       ttsLocale: 'kn-IN',
-      fallbackTtsLocale: 'kn-IN',
-      speechRate: 0.38,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.56,
       pitch: 1.0),
   IndianLanguage(
       code: 'ml',
@@ -200,8 +205,8 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'മലയാളം',
       speechLocale: 'ml-IN',
       ttsLocale: 'ml-IN',
-      fallbackTtsLocale: 'ml-IN',
-      speechRate: 0.38,
+      fallbackTtsLocale: 'en-IN',
+      speechRate: 0.56,
       pitch: 1.0),
   IndianLanguage(
       code: 'pa',
@@ -210,15 +215,16 @@ const List<IndianLanguage> kIndianLanguages = [
       speechLocale: 'pa-IN',
       ttsLocale: 'pa-IN',
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
+  // Languages without native TTS engine → translate text to English then speak
   IndianLanguage(
       code: 'or',
       name: 'Odia',
       nativeName: 'ଓଡ଼ିଆ',
       ttsLocale: null,
       fallbackTtsLocale: 'en-US',
-      speechRate: 0.42,
+      speechRate: 0.60,
       pitch: 1.0),
   IndianLanguage(
       code: 'ur',
@@ -227,7 +233,7 @@ const List<IndianLanguage> kIndianLanguages = [
       speechLocale: 'ur-IN',
       ttsLocale: 'ur-IN',
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'as',
@@ -235,7 +241,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'অসমীয়া',
       ttsLocale: null,
       fallbackTtsLocale: 'bn-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'ne',
@@ -244,7 +250,7 @@ const List<IndianLanguage> kIndianLanguages = [
       speechLocale: 'ne-NP',
       ttsLocale: 'ne-NP',
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'sd',
@@ -252,7 +258,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'سنڌي',
       ttsLocale: null,
       fallbackTtsLocale: 'ur-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'bho',
@@ -260,7 +266,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'भोजपुरी',
       ttsLocale: null,
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'mai',
@@ -268,7 +274,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'मैथिली',
       ttsLocale: null,
       fallbackTtsLocale: 'hi-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'kok',
@@ -276,7 +282,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'कोंकणी',
       ttsLocale: null,
       fallbackTtsLocale: 'mr-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
   IndianLanguage(
       code: 'ks',
@@ -284,7 +290,7 @@ const List<IndianLanguage> kIndianLanguages = [
       nativeName: 'کٲشُر',
       ttsLocale: null,
       fallbackTtsLocale: 'ur-IN',
-      speechRate: 0.40,
+      speechRate: 0.58,
       pitch: 1.0),
 ];
 
@@ -429,7 +435,7 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     _tts = tts;
     try {
       await tts.setVolume(1.0);
-      await tts.setSpeechRate(_selectedLanguage.speechRate ?? 0.45);
+      await tts.setSpeechRate(_selectedLanguage.speechRate ?? 0.62);
       await tts.setPitch(_selectedLanguage.pitch ?? 1.0);
       final locale = _resolveTtsLocale(_selectedLanguage);
       await tts.setLanguage(locale);
@@ -501,19 +507,32 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     _alwaysOnTick();
   }
 
-  // ── Resolve TTS locale — prefer native, fallback only if native is null ───
+  // ── Resolve TTS locale — prefer native, fallback only if native is null ────
   String _resolveTtsLocale(IndianLanguage lang) {
     if (lang.ttsLocale != null) return lang.ttsLocale!;
     return lang.fallbackTtsLocale ?? 'en-US';
   }
 
+  // ── FIX: For languages with no native TTS engine, speak the ENGLISH
+  //    translation instead of the untranslatable script, so the user hears
+  //    correct pronunciation rather than gibberish or silence.
+  Future<String> _resolveSpokenText(AiChatMessage msg) async {
+    // If language has a proper TTS locale, read whatever is displayed
+    if (_selectedLanguage.ttsLocale != null) {
+      return _readableText(msg);
+    }
+    // No native TTS engine — try to get English original text for speaking
+    final original = _stripMarkdown(msg.text.trim());
+    if (original.isNotEmpty) return original;
+    return _readableText(msg);
+  }
+
   // ── Text chunking ─────────────────────────────────────────────────────────
-  static const int _kChunkMax = 200;
+  static const int _kChunkMax = 220;
 
   List<String> _chunkText(String text) {
     if (text.length <= _kChunkMax) return [text];
     final chunks = <String>[];
-    // Split on sentence boundaries including Indian punctuation
     final sentences = text.split(RegExp(r'(?<=[।॥.!?])\s+'));
     final buf = StringBuffer();
     for (final s in sentences) {
@@ -525,7 +544,6 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
           buf.clear();
         }
         if (t.length > _kChunkMax) {
-          // Sub-split on commas/semicolons
           final sub = StringBuffer();
           for (final p in t.split(RegExp(r'(?<=[,;।])\s+'))) {
             final part = p.trim();
@@ -562,9 +580,9 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
   }
 
   // ── Core speak ────────────────────────────────────────────────────────────
-  // KEY FIX: Always set language + rate BEFORE speaking.
-  // This ensures Tamil, Telugu, etc. are spoken in the correct voice,
-  // not defaulted to English TTS engine.
+  // FIX: Always set language + rate BEFORE speaking to ensure correct voice.
+  // FIX: For unsupported locales, fall back gracefully to English so text
+  //      is actually audible with correct content (not silent/garbled).
 
   Future<void> _speakMessage(AiChatMessage msg, int idx) async {
     final tts = _tts;
@@ -580,22 +598,21 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     _ttsQueue.clear();
     _ttsSpeakingFromQueue = false;
 
-    // Use the DISPLAYED text (translated if active, else original)
-    final fullText = _readableText(msg);
+    // Resolve what text to actually speak (handles unsupported locales)
+    final fullText = await _resolveSpokenText(msg);
     if (fullText.isEmpty) return;
 
-    // Always apply correct locale + rate for the current language
+    // Resolve the best available locale for this language
     final locale = _resolveTtsLocale(_selectedLanguage);
-    final rate = _selectedLanguage.speechRate ?? 0.45;
+    final rate = _selectedLanguage.speechRate ?? 0.62;
     final pitch = _selectedLanguage.pitch ?? 1.0;
 
     debugPrint('[TTS] speak locale=$locale rate=$rate len=${fullText.length}');
 
+    // Step 1: attempt to set the native locale
     bool localeSet = false;
     try {
-      // Step 1: set language
       final result = await tts.setLanguage(locale);
-      // On some engines result == 0 means success, 1 means failure
       localeSet = (result == null || result == 1 || result == true);
       await tts.setVolume(1.0);
       await tts.setSpeechRate(rate);
@@ -606,17 +623,19 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     }
 
     // Step 2: if preferred locale failed, try fallback
-    if (!localeSet && _selectedLanguage.fallbackTtsLocale != null) {
+    if (!localeSet) {
+      final fallback = _selectedLanguage.fallbackTtsLocale ?? 'en-US';
       try {
-        await tts.setLanguage(_selectedLanguage.fallbackTtsLocale!);
+        await tts.setLanguage(fallback);
         await tts.setVolume(1.0);
         await tts.setSpeechRate(rate);
         await tts.setPitch(pitch);
-        debugPrint('[TTS] using fallback locale=${_selectedLanguage.fallbackTtsLocale}');
+        debugPrint('[TTS] using fallback locale=$fallback');
       } catch (e) {
-        debugPrint('[TTS] fallback locale error: $e — using en-US');
+        debugPrint('[TTS] fallback locale error: $e — forcing en-US');
         try {
           await tts.setLanguage('en-US');
+          await tts.setSpeechRate(0.62);
         } catch (_) {}
       }
     }
@@ -740,7 +759,6 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
       _ttsState = _TtsState.idle;
       _speakingMsgIndex = -1;
     });
-    // Apply new language settings to TTS engine immediately
     _applyTtsLanguage(lang);
     for (final msg in _messages) {
       if (msg.role == AiChatRole.assistant && !msg.isStreaming) {
@@ -755,7 +773,7 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     final locale = _resolveTtsLocale(lang);
     try {
       await tts.setLanguage(locale);
-      await tts.setSpeechRate(lang.speechRate ?? 0.45);
+      await tts.setSpeechRate(lang.speechRate ?? 0.62);
       await tts.setPitch(lang.pitch ?? 1.0);
       debugPrint('[TTS] language applied: $locale rate=${lang.speechRate}');
     } catch (e) {
@@ -969,7 +987,7 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
     super.dispose();
   }
 
-  // ── Language bottom sheet (mobile/tablet only) ────────────────────────────
+  // ── Language bottom sheet (MOBILE / TABLET only — unchanged) ──────────────
 
   void _showLanguageBottomSheet(BuildContext context) {
     showModalBottomSheet(
@@ -990,11 +1008,8 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
 
   @override
   Widget build(BuildContext context) {
-    // Use LayoutBuilder so we react to the AI panel's actual width,
-    // not the full screen width (important when panel is a sidebar).
     return LayoutBuilder(builder: (context, constraints) {
       final panelWidth = constraints.maxWidth;
-      final isMobile = panelWidth < _kMobileBreakpoint;
       final isMobileOrTablet = panelWidth < _kTabletBreakpoint;
 
       final chatList = ListView.builder(
@@ -1025,8 +1040,8 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
         },
       );
 
-      // Mobile/Tablet: long-press on chat opens language picker bottom sheet
-      // Desktop: no long-press needed — language dropdown is in the header bar
+      // Mobile/Tablet: long-press on chat opens language picker bottom sheet.
+      // Desktop: language is changed via the dropdown in the header bar only.
       final chatArea = isMobileOrTablet
           ? GestureDetector(
               behavior: HitTestBehavior.translucent,
@@ -1059,7 +1074,6 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
               alwaysOnEnabled: _alwaysOnEnabled,
               alwaysOnState: _alwaysOnState,
               onAlwaysOnToggled: _toggleAlwaysOn,
-              // Pass panel width so _Header uses the same breakpoints
               panelWidth: panelWidth,
             ),
           if (kIsWeb && _pendingSpeakIdx != null && !_isMuted)
@@ -1119,10 +1133,11 @@ class _StockAiChatBodyState extends State<StockAiChatBody> {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // _Header
-// KEY: Uses panelWidth (actual widget width) instead of MediaQuery screen width.
-// Desktop (panelWidth >= 900): logo | name | language dropdown | mic | mute
-// Tablet (600–899):            logo+name row / language+controls row
-// Mobile (<600):               logo+name+controls, NO dropdown (long-press chat)
+// CHANGE: Desktop (≥900px) now shows a compact, polished language selector
+//         button that opens a dropdown overlay — NOT a DropdownButton widget.
+//         This avoids the raw Flutter dropdown look and gives full control
+//         over positioning and styling.
+// Mobile/Tablet: language hint text + long-press instruction. Unchanged.
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _Header extends StatelessWidget {
@@ -1151,7 +1166,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = panelWidth < _kMobileBreakpoint;
-    final isTablet = panelWidth >= _kMobileBreakpoint && panelWidth < _kTabletBreakpoint;
+    final isTablet =
+        panelWidth >= _kMobileBreakpoint && panelWidth < _kTabletBreakpoint;
     final isDesktop = panelWidth >= _kTabletBreakpoint;
 
     return Container(
@@ -1170,14 +1186,14 @@ class _Header extends StatelessWidget {
         ],
       ),
       child: isDesktop
-          ? _buildDesktop()
+          ? _buildDesktop(context)
           : isTablet
-              ? _buildTablet()
-              : _buildMobile(),
+              ? _buildTablet(context)
+              : _buildMobile(context),
     );
   }
 
-  List<Widget> get _controls => [
+  List<Widget> _controls(BuildContext context) => [
         _AlwaysOnMicButton(
           state: alwaysOnState,
           isEnabled: alwaysOnEnabled,
@@ -1187,8 +1203,9 @@ class _Header extends StatelessWidget {
         _MuteButton(isMuted: isMuted, onTap: onMuteToggled),
       ];
 
-  // ── Desktop: single row with language dropdown always visible ─────────────
-  Widget _buildDesktop() => Row(
+  // ── DESKTOP: single row — logo | name | [language pill] | controls ─────────
+  // Language pill opens a custom overlay dropdown (not Flutter's DropdownButton).
+  Widget _buildDesktop(BuildContext context) => Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const StocbuyLogoMark(size: 20),
@@ -1206,21 +1223,18 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Language dropdown — always visible on desktop
-          SizedBox(
-            width: 155,
-            child: _LanguageDropdown(
-              selected: selectedLanguage,
-              onChanged: onLanguageChanged,
-            ),
+          // ── Desktop language selector (custom overlay) ──────────────────
+          _DesktopLanguageSelector(
+            selected: selectedLanguage,
+            onChanged: onLanguageChanged,
           ),
           const SizedBox(width: 8),
-          ..._controls,
+          ..._controls(context),
         ],
       );
 
-  // ── Tablet: two rows ──────────────────────────────────────────────────────
-  Widget _buildTablet() => Column(
+  // ── TABLET: two rows. Second row has the language dropdown + controls ───────
+  Widget _buildTablet(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1241,7 +1255,7 @@ class _Header extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 10),
-          // Tablet also shows dropdown for convenience (no long-press needed)
+          // Tablet keeps original DropdownButton — unchanged behaviour
           Row(children: [
             Expanded(
               child: _LanguageDropdown(
@@ -1250,14 +1264,13 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ..._controls,
+            ..._controls(context),
           ]),
         ],
       );
 
-  // ── Mobile: compact single row, NO dropdown ───────────────────────────────
-  // Language changed via long-press on the chat list area
-  Widget _buildMobile() => Row(
+  // ── MOBILE: compact single row, NO dropdown — long-press chat to change ─────
+  Widget _buildMobile(BuildContext context) => Row(
         children: [
           const StocbuyLogoMark(size: 18),
           const SizedBox(width: 10),
@@ -1295,12 +1308,218 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          ..._controls,
+          ..._controls(context),
         ],
       );
 }
 
-// ── Language Bottom Sheet (Mobile / Tablet only) ──────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// _DesktopLanguageSelector
+// A compact pill button on desktop that opens a scrollable overlay list of
+// all languages. Clicking outside dismisses it. Fully custom — no DropdownButton.
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _DesktopLanguageSelector extends StatefulWidget {
+  const _DesktopLanguageSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final IndianLanguage selected;
+  final ValueChanged<IndianLanguage> onChanged;
+
+  @override
+  State<_DesktopLanguageSelector> createState() =>
+      _DesktopLanguageSelectorState();
+}
+
+class _DesktopLanguageSelectorState extends State<_DesktopLanguageSelector> {
+  OverlayEntry? _overlay;
+  final _key = GlobalKey();
+
+  void _open() {
+    if (_overlay != null) {
+      _close();
+      return;
+    }
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    _overlay = OverlayEntry(builder: (ctx) {
+      return Stack(children: [
+        // Full-screen tap-away dismisser
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: _close,
+          ),
+        ),
+        // The dropdown panel itself
+        Positioned(
+          left: offset.dx,
+          top: offset.dy + size.height + 6,
+          width: 210,
+          child: Material(
+            elevation: 0,
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 340),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: AppColors.border.withValues(alpha: 0.9)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.darkblue.withValues(alpha: 0.10),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shrinkWrap: true,
+                  itemCount: kIndianLanguages.length,
+                  itemBuilder: (_, i) {
+                    final lang = kIndianLanguages[i];
+                    final isSelected =
+                        widget.selected.code == lang.code;
+                    return InkWell(
+                      onTap: () {
+                        widget.onChanged(lang);
+                        _close();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 130),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.lightblue.withValues(alpha: 0.10)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.lightblue.withValues(alpha: 0.40)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: Row(children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  lang.nativeName,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? AppColors.lightblue
+                                        : AppColors.darkblue,
+                                  ),
+                                ),
+                                Text(
+                                  lang.name,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(Icons.check_rounded,
+                                size: 14, color: AppColors.lightblue),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ]);
+    });
+
+    Overlay.of(context).insert(_overlay!);
+    setState(() {});
+  }
+
+  void _close() {
+    _overlay?.remove();
+    _overlay = null;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _overlay?.remove();
+    _overlay = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOpen = _overlay != null;
+    return GestureDetector(
+      key: _key,
+      onTap: _open,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: isOpen
+              ? AppColors.lightblue.withValues(alpha: 0.10)
+              : AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isOpen
+                ? AppColors.lightblue.withValues(alpha: 0.55)
+                : AppColors.border,
+            width: isOpen ? 1.3 : 1.0,
+          ),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(
+            Icons.language_rounded,
+            size: 13,
+            color: isOpen ? AppColors.lightblue : AppColors.grey,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            widget.selected.nativeName,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isOpen ? AppColors.lightblue : AppColors.darkblue,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            isOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+            size: 14,
+            color: isOpen ? AppColors.lightblue : AppColors.grey,
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Language Bottom Sheet (MOBILE / TABLET only — unchanged) ──────────────────
 
 class _LanguageBottomSheet extends StatelessWidget {
   const _LanguageBottomSheet({
@@ -1324,7 +1543,6 @@ class _LanguageBottomSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 40,
@@ -1334,11 +1552,11 @@ class _LanguageBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
           ),
-          // Title row
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: Row(children: [
-              const Icon(Icons.language_rounded, size: 18, color: AppColors.darkblue),
+              const Icon(Icons.language_rounded,
+                  size: 18, color: AppColors.darkblue),
               const SizedBox(width: 10),
               const Text(
                 'Select Language',
@@ -1359,13 +1577,13 @@ class _LanguageBottomSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 14, color: AppColors.grey),
+                  child: const Icon(Icons.close_rounded,
+                      size: 14, color: AppColors.grey),
                 ),
               ),
             ]),
           ),
           const Divider(height: 1),
-          // Language list
           Flexible(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1377,8 +1595,10 @@ class _LanguageBottomSheet extends StatelessWidget {
                   onTap: () => onLanguageChanged(lang),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.lightblue.withValues(alpha: 0.10)
@@ -1400,7 +1620,9 @@ class _LanguageBottomSheet extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: isSelected ? AppColors.lightblue : AppColors.darkblue,
+                                color: isSelected
+                                    ? AppColors.lightblue
+                                    : AppColors.darkblue,
                               ),
                             ),
                             Text(
@@ -1500,7 +1722,8 @@ class _AlwaysOnMicButton extends StatelessWidget {
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 5),
           Text(label,
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+              style:
+                  TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
         ]),
       ),
     );
@@ -1521,10 +1744,14 @@ class _MuteButton extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isMuted ? Colors.red.withValues(alpha: 0.12) : AppColors.surfaceMuted,
+            color: isMuted
+                ? Colors.red.withValues(alpha: 0.12)
+                : AppColors.surfaceMuted,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-                color: isMuted ? Colors.red.withValues(alpha: 0.45) : AppColors.border),
+                color: isMuted
+                    ? Colors.red.withValues(alpha: 0.45)
+                    : AppColors.border),
           ),
           child: Icon(
               isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
@@ -1534,7 +1761,7 @@ class _MuteButton extends StatelessWidget {
       );
 }
 
-// ── Language Dropdown ─────────────────────────────────────────────────────────
+// ── Language Dropdown (kept for TABLET only) ──────────────────────────────────
 
 class _LanguageDropdown extends StatelessWidget {
   const _LanguageDropdown({required this.selected, required this.onChanged});
@@ -1554,9 +1781,12 @@ class _LanguageDropdown extends StatelessWidget {
             isDense: true,
             isExpanded: true,
             menuMaxHeight: 320,
-            icon: const Icon(Icons.language_rounded, size: 14, color: AppColors.grey),
+            icon: const Icon(Icons.language_rounded,
+                size: 14, color: AppColors.grey),
             style: const TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.darkblue),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.darkblue),
             borderRadius: BorderRadius.circular(12),
             items: kIndianLanguages
                 .map((lang) => DropdownMenuItem<IndianLanguage>(
@@ -1626,7 +1856,8 @@ class _MessageBubble extends StatelessWidget {
         children: [
           AiChatAssistantBubble(
             text: m.isTranslating ? m.text : m.displayText,
-            analysisReports: m.isTranslating ? m.analysisReports : m.displayReports,
+            analysisReports:
+                m.isTranslating ? m.analysisReports : m.displayReports,
             isStreaming: m.isStreaming,
             stepLog: m.stepLog,
             sentAt: m.sentAt,
@@ -1643,15 +1874,21 @@ class _MessageBubble extends StatelessWidget {
                 const SizedBox(width: 5),
                 const Text('Translating…',
                     style: TextStyle(
-                        fontSize: 10, color: AppColors.grey, fontWeight: FontWeight.w500)),
+                        fontSize: 10,
+                        color: AppColors.grey,
+                        fontWeight: FontWeight.w500)),
               ],
               if (!m.isTranslating &&
-                  (m.translatedText != null || m.translatedReports != null)) ...[
-                const Icon(Icons.translate_rounded, size: 10, color: AppColors.grey),
+                  (m.translatedText != null ||
+                      m.translatedReports != null)) ...[
+                const Icon(Icons.translate_rounded,
+                    size: 10, color: AppColors.grey),
                 const SizedBox(width: 4),
                 const Text('Translated',
                     style: TextStyle(
-                        fontSize: 10, color: AppColors.grey, fontWeight: FontWeight.w500)),
+                        fontSize: 10,
+                        color: AppColors.grey,
+                        fontWeight: FontWeight.w500)),
                 if (onRetranslate != null) ...[
                   const SizedBox(width: 4),
                   GestureDetector(
@@ -1666,10 +1903,13 @@ class _MessageBubble extends StatelessWidget {
               if (onSpeak != null) ...[
                 if (m.isTranslating ||
                     (!m.isTranslating &&
-                        (m.translatedText != null || m.translatedReports != null)))
+                        (m.translatedText != null ||
+                            m.translatedReports != null)))
                   const SizedBox(width: 8),
                 _SpeakButton(
-                    isSpeaking: isSpeaking, isPending: isPendingSpeak, onTap: onSpeak!),
+                    isSpeaking: isSpeaking,
+                    isPending: isPendingSpeak,
+                    onTap: onSpeak!),
               ],
             ]),
           ),
@@ -1723,7 +1963,8 @@ class _SpeakButton extends StatelessWidget {
           Icon(icon, size: 11, color: fg),
           const SizedBox(width: 4),
           Text(label,
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
+              style:
+                  TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
         ]),
       ),
     );
@@ -1772,7 +2013,8 @@ class _InputBar extends StatefulWidget {
   State<_InputBar> createState() => _InputBarState();
 }
 
-class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixin {
+class _InputBarState extends State<_InputBar>
+    with SingleTickerProviderStateMixin {
   bool _hasText = false;
   _VoiceState _voiceState = _VoiceState.idle;
   String _liveTranscript = '';
@@ -1831,7 +2073,9 @@ class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixi
               lower.contains('no_match') ||
               lower.contains('no match')) {
             if (_voiceState == _VoiceState.listening) {
-              _liveTranscript.trim().isNotEmpty ? _finishVoice() : _onSilence();
+              _liveTranscript.trim().isNotEmpty
+                  ? _finishVoice()
+                  : _onSilence();
             }
             return;
           }
@@ -1844,7 +2088,9 @@ class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixi
               _voiceState == _VoiceState.listening &&
               !_finishing) {
             Future<void>.delayed(const Duration(milliseconds: 300), () {
-              if (!mounted || _finishing || _voiceState != _VoiceState.listening) return;
+              if (!mounted ||
+                  _finishing ||
+                  _voiceState != _VoiceState.listening) return;
               if (_finalResultReceived) return;
               final elapsed = DateTime.now()
                   .difference(_listenStart ?? DateTime.now())
@@ -2069,7 +2315,9 @@ class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixi
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                     color: fieldBorderColor,
-                    width: alwaysOn || deep || _voiceState != _VoiceState.idle
+                    width: alwaysOn ||
+                            deep ||
+                            _voiceState != _VoiceState.idle
                         ? 1.4
                         : 1.0),
               ),
@@ -2092,10 +2340,13 @@ class _InputBarState extends State<_InputBar> with SingleTickerProviderStateMixi
                               : AppColors.grey,
                       fontWeight: FontWeight.w600),
                   isCollapsed: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 13),
                 ),
                 style: const TextStyle(
-                    fontSize: 13, color: AppColors.darkblue, fontWeight: FontWeight.w600),
+                    fontSize: 13,
+                    color: AppColors.darkblue,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -2166,7 +2417,8 @@ class _AlwaysOnStatusPill extends StatelessWidget {
         Icon(icon, size: 10, color: color),
         const SizedBox(width: 4),
         Text(label,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700, color: color)),
       ]),
     );
   }
@@ -2244,7 +2496,8 @@ class _SendVoiceButton extends StatelessWidget {
                 ? const SizedBox(
                     width: 17,
                     height: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : Icon(_icon, color: Colors.white, size: 17),
           ),
         ),
@@ -2288,8 +2541,10 @@ class _VoiceHintBar extends StatelessWidget {
                 : Colors.orange.withValues(alpha: 0.25)),
       ),
       child: Row(children: [
-        Icon(isListening ? Icons.mic_rounded : Icons.translate_rounded,
-            size: 12, color: isListening ? Colors.red : Colors.orange),
+        Icon(
+            isListening ? Icons.mic_rounded : Icons.translate_rounded,
+            size: 12,
+            color: isListening ? Colors.red : Colors.orange),
         const SizedBox(width: 6),
         Expanded(
             child: Text(
@@ -2309,7 +2564,8 @@ class _VoiceHintBar extends StatelessWidget {
           const SizedBox(width: 6),
           GestureDetector(
               onTap: onCancel,
-              child: const Icon(Icons.close_rounded, size: 14, color: AppColors.grey)),
+              child: const Icon(Icons.close_rounded,
+                  size: 14, color: AppColors.grey)),
         ],
       ]),
     );
@@ -2337,10 +2593,14 @@ class _ModeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: active ? activeColor.withValues(alpha: 0.12) : AppColors.surfaceMuted,
+          color: active
+              ? activeColor.withValues(alpha: 0.12)
+              : AppColors.surfaceMuted,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-              color: active ? activeColor.withValues(alpha: 0.55) : AppColors.border,
+              color: active
+                  ? activeColor.withValues(alpha: 0.55)
+                  : AppColors.border,
               width: active ? 1.2 : 1.0),
         ),
         child: Material(
@@ -2352,7 +2612,8 @@ class _ModeChip extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: 12, color: active ? activeColor : AppColors.grey),
+                Icon(icon,
+                    size: 12, color: active ? activeColor : AppColors.grey),
                 const SizedBox(width: 5),
                 Text(label,
                     style: TextStyle(
@@ -2379,8 +2640,7 @@ class StockAiChatPanel extends StatelessWidget {
         decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: AppColors.border.withValues(alpha: 0.9)),
+            border: Border.all(color: AppColors.border.withValues(alpha: 0.9)),
             boxShadow: [
               BoxShadow(
                   color: AppColors.darkblue.withValues(alpha: 0.05),
@@ -2390,6 +2650,7 @@ class StockAiChatPanel extends StatelessWidget {
             ]),
         child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: StockAiChatBody(symbol: symbol, displayName: displayName)),
+            child:
+                StockAiChatBody(symbol: symbol, displayName: displayName)),
       );
 }
