@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:flutter/foundation.dart';
+import 'package:stocbuy_application/application/speech/web_media.dart';
 import 'package:translator/translator.dart';
 import 'package:stocbuy_application/application/pages/stock_details/widgets/stock_ai_chat.dart';
 import 'package:stocbuy_application/application/responsive/responsive.dart';
@@ -71,6 +73,9 @@ class _GptInputBarState extends State<GptInputBar>
   /// a complete sentence even before doneStatus fires.
   bool _gotFinalResult = false;
 
+  /// Timestamp when listening started; used to enforce minimum recording duration.
+  DateTime? _listeningStartTime;
+
   final SpeechToText _speech = SpeechToText();
   bool _speechAvailable = false;
   bool _speechInitialized = false;
@@ -98,46 +103,46 @@ class _GptInputBarState extends State<GptInputBar>
     ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
   }
 
-  Future<bool> _initSpeech() async {
-    try {
-      _speechAvailable = await _speech.initialize(
-        onError: (error) {
-          debugPrint('STT error: ${error.errorMsg}');
-          if (!mounted) return;
+Future<bool> _initSpeech() async {
+  try {
 
-          // Timeout / no-match = user paused long enough → treat as done.
-          if (error.errorMsg == 'error_speech_timeout' ||
-              error.errorMsg == 'error_no_match') {
-            if (_voiceState == _VoiceState.listening) {
-              if (_liveTranscript.trim().isNotEmpty) {
-                _finishVoice();
-              } else {
-                _resetVoice();
-              }
-            }
-          } else {
-            _cancelVoice();
-          }
-        },
-        onStatus: (status) {
-          debugPrint('STT status: $status');
-          if (!mounted) return;
+    _speechAvailable = await _speech.initialize(
+      onError: (error) {
+        final errCode = error?.errorMsg ?? error.toString();
+        debugPrint('STT error: $errCode');
 
-          if (status == SpeechToText.doneStatus &&
-              _voiceState == _VoiceState.listening) {
+        // ignore non-fatal errors
+        if (errCode.toString().toLowerCase().contains('network')) {
+          return;
+        }
+
+        _cancelVoice();
+      },
+      onStatus: (status) {
+        debugPrint('STT status: $status');
+
+        if (!mounted) return;
+
+        if (status == SpeechToText.doneStatus &&
+            _voiceState == _VoiceState.listening) {
+          final elapsedMs = DateTime.now()
+              .difference(_listeningStartTime ?? DateTime.now())
+              .inMilliseconds;
+
+          if (elapsedMs > 800 && _gotFinalResult) {
             _finishVoice();
           }
-        },
-      );
-      if (mounted) setState(() {});
-      return _speechAvailable;
-    } catch (e) {
-      debugPrint('Speech initialization error: $e');
-      _speechAvailable = false;
-      if (mounted) setState(() {});
-      return false;
-    }
+        }
+      },
+    );
+
+    return _speechAvailable;
+  } catch (e) {
+    debugPrint('Init error: $e');
+    _speechAvailable = false;
+    return false;
   }
+}
 
   @override
   void dispose() {
@@ -160,43 +165,62 @@ class _GptInputBarState extends State<GptInputBar>
     }
   }
 
-  Future<void> _startVoice() async {
-    if (!widget.enabled) return;
-    if (_voiceState != _VoiceState.idle) return;
+Future<void> _startVoice() async {
+  if (!widget.enabled) return;
+  if (_voiceState != _VoiceState.idle) return;
 
-    if (!_speechInitialized) {
-      _speechInitialized = await _initSpeech();
-    }
-    if (!_speechAvailable) return;
+  // 🔥 FIX 1: ensure proper re-init on mobile failures
+  if (!_speechInitialized || !_speechAvailable) {
+    _speechInitialized = await _initSpeech();
+  }
 
-    final locale = widget.selectedLanguage.speechLocale ?? 'en-US';
 
-    setState(() {
-      _voiceState = _VoiceState.listening;
-      _liveTranscript = '';
-      _gotFinalResult = false;
-      widget.controller.text = '';
-      widget.controller.selection = const TextSelection.collapsed(offset: 0);
-    });
 
-    _isFinishing = false;
+  if (!_speechAvailable) {
+    _speechInitialized = false;
+    return;
+  }
 
-    debugPrint('STT start — locale: $locale');
+  final locale = widget.selectedLanguage.speechLocale ?? 'en-US';
 
-    // ignore: deprecated_member_use
+  setState(() {
+    _voiceState = _VoiceState.listening;
+    _liveTranscript = '';
+    _gotFinalResult = false;
+    widget.controller.text = '';
+    widget.controller.selection =
+        const TextSelection.collapsed(offset: 0);
+  });
+
+  _listeningStartTime = DateTime.now();
+  _isFinishing = false;
+
+  debugPrint('STT start — locale: $locale');
+
+  try {
+    // 🔥 FIX 2: force restart recognition (mobile Chrome fix)
+    await _speech.stop();
+    await Future.delayed(const Duration(milliseconds: 200));
+
     await _speech.listen(
       localeId: locale,
-      listenMode: ListenMode.confirmation,
+
+      // 🔥 FIX 3: mobile-safe mode
+      listenMode: ListenMode.dictation,
+
       partialResults: true,
       cancelOnError: false,
-      listenFor: const Duration(minutes: 2),
-      pauseFor: const Duration(seconds: 4),
+
+      listenFor: const Duration(minutes: 1),
+      pauseFor: const Duration(seconds: 2),
+
       onResult: (result) {
         if (!mounted) return;
 
-        final text = result.recognizedWords.trim().toLowerCase();
+        final text = result.recognizedWords.trim();
+
         debugPrint(
-          'STT result — text: "$text"  isFinal: ${result.finalResult}  confidence: ${result.confidence}',
+          'STT result: "$text" final=${result.finalResult}',
         );
 
         if (text.isNotEmpty) {
@@ -204,6 +228,7 @@ class _GptInputBarState extends State<GptInputBar>
             text: text,
             selection: TextSelection.collapsed(offset: text.length),
           );
+
           setState(() {
             _liveTranscript = text;
           });
@@ -211,11 +236,23 @@ class _GptInputBarState extends State<GptInputBar>
 
         if (result.finalResult) {
           _gotFinalResult = true;
-          if (_voiceState == _VoiceState.listening) _finishVoice();
+
+          final elapsedMs = DateTime.now()
+              .difference(_listeningStartTime ?? DateTime.now())
+              .inMilliseconds;
+
+          if (elapsedMs >= 800 &&
+              _voiceState == _VoiceState.listening) {
+            _finishVoice();
+          }
         }
       },
     );
+  } catch (e) {
+    debugPrint('STT listen error: $e');
+    _cancelVoice();
   }
+}
 
   Future<void> _finishVoice() async {
     if (_isFinishing) return;

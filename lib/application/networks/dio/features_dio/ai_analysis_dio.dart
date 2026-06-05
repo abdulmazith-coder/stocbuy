@@ -99,9 +99,9 @@ class AiAnalysisStreamEvent {
       }
     } else {
       final rawData = dataField?.toString().trim() ?? '';
-      if (rawData.startsWith('{') && flat.isEmpty) {
-        flat.addAll(parseCachedPythonDictReports(rawData));
-      }
+if (rawData.startsWith('{') && flat.isEmpty) {
+  flat.addAll(parseCachedPythonDictReports(rawData));
+}
     }
 
     // Emit reports in canonical order so the tab strip is always consistent.
@@ -295,25 +295,35 @@ class AiAnalysisDio {
       remaining = remaining.substring(jsonEnd);
 
       try {
-        final json = jsonDecode(jsonStr);
-        if (json is Map<String, dynamic>) {
-          final event = AiAnalysisStreamEvent.fromJson(json);
-          events.add(event);
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('AiAnalysisDio: bad JSON ($e): $jsonStr');
-        }
+  final json = jsonDecode(jsonStr);
+  if (json is Map<String, dynamic>) {
+    // DEBUG: log raw keys so you can see what the backend actually sends
+    if (kDebugMode) {
+      final keys = json.keys.where((k) => k != 'status' && k != 'message' && k != 'data').toList();
+      if (keys.isNotEmpty) {
+        debugPrint('AiAnalysisDio: SSE keys=${json['status']} $keys');
       }
+    }
+    final event = AiAnalysisStreamEvent.fromJson(json);
+    if (kDebugMode && event.isSuccess && !event.hasReportContent) {
+      debugPrint('AiAnalysisDio: ⚠️ success event has NO report content! raw=$jsonStr');
+    }
+    events.add(event);
+  }
+} catch (e) {
+  if (kDebugMode) {
+    debugPrint('AiAnalysisDio: bad JSON ($e): $jsonStr');
+  }
+}
     }
 
     if (!flush) {
-      // Keep tail after last complete event for the next chunk.
-      final lastData = remaining.lastIndexOf('data:');
-      if (lastData > 0) {
-        remaining = remaining.substring(lastData);
-      }
-    } else {
+  // Keep tail after last complete event for the next chunk.
+  final lastData = remaining.lastIndexOf('data:');
+  if (lastData >= 0) {                          // ✅ was > 0, missing position-0 case
+    remaining = remaining.substring(lastData);
+  }
+} else {
       remaining = '';
     }
 

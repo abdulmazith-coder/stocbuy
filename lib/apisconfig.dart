@@ -1,7 +1,7 @@
 
 
 class APISConfigs {
-  static const String baseURL = "https://stocbuy.onrender.com/api/";
+  static const String baseURL = "https://web-production-7d487.up.railway.app/api/";
 
   // AUTH
   static const String signup        = "${baseURL}auth/signup/";

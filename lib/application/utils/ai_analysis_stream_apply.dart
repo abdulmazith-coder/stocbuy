@@ -93,6 +93,19 @@ void applyAnalysisStreamEvent(
       return;
     }
 
+    // ── Fallback: success event with no recognised report shape ──────────────
+  // Backend sent status=success but no reports[] and no parseable data field.
+  // Capture the raw message so the user sees something rather than silence.
+  if (event.isSuccess && !event.hasReportContent) {
+    final fallback = event.message.trim();
+    if (fallback.isNotEmpty &&
+        fallback.toLowerCase() != 'ai response ready' &&
+        fallback.toLowerCase() != 'success') {
+      message.appendAnalysisReport(fallback, fieldKey: 'data');
+      message.pendingFinalReport = fallback;
+    }
+  }
+
     message.appendAnalysisReport(report, fieldKey: 'data');
     message.pendingFinalReport = report;
 
@@ -106,20 +119,27 @@ void applyAnalysisStreamEvent(
 void finalizeAnalysisReport(AnalysisStreamMessage message) {
   _syncEnrichedReports(message);
 
+  // 1. Prefer the enriched final_analysis section
   final finalMarkdown = _latestFinalMarkdown(message);
-  if (finalMarkdown != null) {
+  if (finalMarkdown != null && finalMarkdown.trim().isNotEmpty) {
     message.text = finalMarkdown;
     return;
   }
 
+  // 2. Already has text (set during streaming)
   if (message.text.trim().isNotEmpty) return;
 
+  // 3. Concatenate all report sections as fallback
   final reports = message.analysisReports;
   if (reports.isNotEmpty) {
-    message.text = reports.last.markdown;
+    // Prefer the last section with the most content
+    final best = reports.reduce((a, b) => 
+        a.markdown.length >= b.markdown.length ? a : b);
+    message.text = best.markdown;
     return;
   }
 
+  // 4. Last resort: pendingFinalReport
   final draft = message.pendingFinalReport?.trim() ?? '';
   if (draft.isNotEmpty) {
     message.text = draft;

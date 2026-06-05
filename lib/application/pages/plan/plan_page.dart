@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stocbuy_application/application/navigation/app_routes.dart';
 import 'package:stocbuy_application/application/navigation/shell_menu_navigation.dart';
+import 'package:stocbuy_application/application/pages/plan/contactus.dart';
 import 'package:stocbuy_application/application/responsive/responsive.dart';
 import 'package:stocbuy_application/application/themes/colors.dart';
-import 'package:stocbuy_application/application/utils/external_url.dart';
 import 'package:stocbuy_application/application/widgets/navbar.dart';
 
 /// Pricing — Free plan and Contact us.
@@ -13,6 +13,7 @@ class PlanPage extends StatelessWidget {
 
   static const String route = '/plan';
   static const _contactEmail = 'support@stocbuy.com';
+
 
   @override
   Widget build(BuildContext context) {
@@ -91,12 +92,7 @@ class PlanPage extends StatelessWidget {
   }
 
   static Future<void> _openContact(BuildContext context) {
-    return openExternalUrl(
-      'mailto:$_contactEmail?subject=Stocbuy%20pricing%20inquiry',
-      context: context,
-      failureMessage:
-          'Could not open your email app. Email us at $_contactEmail',
-    );
+    return showContactUsSheet(context);
   }
 }
 
