@@ -54,6 +54,25 @@ NEWS               = "news"
 FULL_ANALYSIS      = "full_analysis"
 FINAL_ANALYSIS     = "final_analysis"
 
+# ─────────────────────────────────────────────────────────────
+# FIX 1: All possible strings the wordfinding AI might return
+#         for a "full analysis" request, mapped to FULL_ANALYSIS.
+#
+# Previously only "full_analysis" (underscore) was in route_map,
+# but the AI returns natural language like "full analysis",
+# "full stock analysis", "complete analysis", etc.
+# ─────────────────────────────────────────────────────────────
+
+FULL_ANALYSIS_ALIASES = {
+    "full_analysis",
+    "full analysis",
+    "full stock analysis",
+    "complete analysis",
+    "all analysis",
+    "full",
+    "complete",
+}
+
 
 # ─────────────────────────────────────────────────────────────
 # SAFE THREAD
@@ -84,27 +103,16 @@ def _fetch_all_yfinance(ticker):
 class SavingResponse:
     """
     Per-stock, per-analysis_type cache with 24-hour expiry.
-
-    Cache behaviour:
-      • Any user requesting the same (stock_symbol, analysis_type)
-        within 24 h gets the stored response immediately.
-      • After 24 h the record is considered expired → AI re-runs,
-        result overwrites the existing row, timer resets.
-      • ALL users share the same cache entry per stock.
+    All users share the same cache entry per stock symbol.
     """
 
     @staticmethod
-    async def get_cached_response(
-        stock_symbol: str,
-        analysis_type: str,
-    ):
+    async def get_cached_response(stock_symbol: str, analysis_type: str):
         """
         Returns:
-          None                               – no row in DB
-          {"cached": True, "expired": False,
-           "response": <data>}               – fresh (< 24 h)
-          {"cached": True, "expired": True,
-           "response": <data>}               – stale (≥ 24 h)
+          None                                          – no row in DB
+          {"cached": True, "expired": False, "response": <data>}  – fresh
+          {"cached": True, "expired": True,  "response": <data>}  – stale
         """
         try:
             obj = await sync_to_async(
@@ -132,14 +140,9 @@ class SavingResponse:
             return None
 
     @staticmethod
-    async def save_response(
-        stock_symbol: str,
-        analysis_type: str,
-        ai_data,
-    ):
+    async def save_response(stock_symbol: str, analysis_type: str, ai_data):
         """
         Upsert: create if not exists, otherwise overwrite + reset timestamp.
-        Returns the data that was saved (or fell back to).
         """
         try:
             obj, created = await sync_to_async(
@@ -189,14 +192,13 @@ async def _run_ai(
 
     if progress_queue:
         async def _heartbeat():
-            dots = [".", "..", "..."]
             i = 0
             while not ai_task.done():
                 await asyncio.sleep(3)
                 if not ai_task.done():
                     await progress_queue.put({
                         "status":  "processing",
-                        "message": f"AI is analyzing {analysis_type}{dots[i % 3]}",
+                        "message": f"AI is analyzing {analysis_type}...",
                     })
                     i += 1
 
@@ -279,17 +281,10 @@ class AnalysisStatement:
     # CORE STREAM WRAPPER
     # ─────────────────────────────────────────────────────────
 
-    async def _stream_ai(
-        self,
-        analysis_type,
-        label,
-        ai_callable,
-        *ai_args,
-    ):
+    async def _stream_ai(self, analysis_type, label, ai_callable, *ai_args):
         pq = asyncio.Queue()
 
         async with self.ai_semaphore:
-            # ✅ Task created INSIDE semaphore — properly rate-limited
             ai_task = asyncio.create_task(
                 _run_ai(
                     ai_callable,
@@ -337,9 +332,10 @@ class AnalysisStatement:
 
         if cached and not cached["expired"]:
             yield {
-                "status":     "success",
-                "cached":     True,
-                response_key: cached["response"],
+                "status":        "success",
+                "cached":        True,
+                "analysis_type": analysis_type,
+                response_key:    cached["response"],
             }
             return
 
@@ -377,9 +373,10 @@ class AnalysisStatement:
             )
 
         yield {
-            "status":     "success",
-            "cached":     False,
-            response_key: result,
+            "status":        "success",
+            "cached":        False,
+            "analysis_type": analysis_type,
+            response_key:    result,
         }
 
     # ─────────────────────────────────────────────────────────
@@ -388,9 +385,7 @@ class AnalysisStatement:
 
     async def analysisTheBalanceSheet(self):
         yield {"status": "processing", "message": "Fetching balance sheet..."}
-
         data = await self._fetch_yf()
-
         async for item in self._cached_single_analysis(
             BALANCE_SHEET,
             data["balance_sheet"],
@@ -407,9 +402,7 @@ class AnalysisStatement:
 
     async def analysisIncomeStatement(self):
         yield {"status": "processing", "message": "Fetching income statement..."}
-
         data = await self._fetch_yf()
-
         async for item in self._cached_single_analysis(
             INCOME_STATEMENT,
             data["income_stmt"],
@@ -426,9 +419,7 @@ class AnalysisStatement:
 
     async def analysisCashFlow(self):
         yield {"status": "processing", "message": "Fetching cash flow..."}
-
         data = await self._fetch_yf()
-
         async for item in self._cached_single_analysis(
             CASH_FLOW,
             data["cashflow"],
@@ -445,9 +436,7 @@ class AnalysisStatement:
 
     async def analysisShareholders(self):
         yield {"status": "processing", "message": "Fetching shareholders..."}
-
         data = await self._fetch_yf()
-
         async for item in self._cached_single_analysis(
             SHAREHOLDERS,
             data["major_holders"],
@@ -470,8 +459,9 @@ class AnalysisStatement:
         )
         if cached and not cached["expired"]:
             yield {
-                "status":         "success",
-                "cached":         True,
+                "status":        "success",
+                "cached":        True,
+                "analysis_type": FINANCIAL_RATIOS,
                 FINANCIAL_RATIOS: cached["response"],
             }
             return
@@ -498,8 +488,9 @@ class AnalysisStatement:
             )
 
         yield {
-            "status":         "success",
-            "cached":         False,
+            "status":        "success",
+            "cached":        False,
+            "analysis_type": FINANCIAL_RATIOS,
             FINANCIAL_RATIOS: result,
         }
 
@@ -510,14 +501,13 @@ class AnalysisStatement:
     async def analysisNews(self):
         yield {"status": "processing", "message": "Fetching latest news..."}
 
-        cached = await SavingResponse.get_cached_response(
-            self.stock_symbol, NEWS
-        )
+        cached = await SavingResponse.get_cached_response(self.stock_symbol, NEWS)
         if cached and not cached["expired"]:
             yield {
-                "status": "success",
-                "cached": True,
-                NEWS:     cached["response"],
+                "status":        "success",
+                "cached":        True,
+                "analysis_type": NEWS,
+                NEWS:            cached["response"],
             }
             return
 
@@ -538,14 +528,13 @@ class AnalysisStatement:
                 yield item
 
         if result:
-            await SavingResponse.save_response(
-                self.stock_symbol, NEWS, result
-            )
+            await SavingResponse.save_response(self.stock_symbol, NEWS, result)
 
         yield {
-            "status": "success",
-            "cached": False,
-            NEWS:     result,
+            "status":        "success",
+            "cached":        False,
+            "analysis_type": NEWS,
+            NEWS:            result,
         }
 
     # ─────────────────────────────────────────────────────────
@@ -556,16 +545,37 @@ class AnalysisStatement:
 
         yield {"status": "processing", "message": "Starting full stock analysis..."}
 
-        # ── Check full_analysis cache first ──────────────────
+        # ── FIX 2: full_analysis cache now correctly stores AND restores
+        #    the complete final_data dict including final_analysis key.
+        #    On cache hit, we yield each sub-analysis individually so the
+        #    frontend receives the same structure as a fresh run.
+        # ─────────────────────────────────────────────────────
         cached_full = await SavingResponse.get_cached_response(
             self.stock_symbol, FULL_ANALYSIS
         )
         if cached_full and not cached_full["expired"]:
+            stored = cached_full["response"]  # this is the final_data dict
+
+            # Yield each sub-analysis so frontend handles it identically
+            sub_keys = [
+                BALANCE_SHEET, INCOME_STATEMENT, CASH_FLOW,
+                SHAREHOLDERS, FINANCIAL_RATIOS, NEWS,
+            ]
+            for key in sub_keys:
+                if stored.get(key):
+                    yield {
+                        "status":        "success",
+                        "cached":        True,
+                        "analysis_type": key,
+                        "data":          stored[key],
+                    }
+
+            # Yield the final combined verdict
             yield {
                 "status":  "success",
-                "message": "Using cached full analysis",
+                "message": "Full analysis complete",
                 "cached":  True,
-                "data":    cached_full["response"],
+                "data":    stored,
             }
             return
 
@@ -698,7 +708,9 @@ class AnalysisStatement:
                     self.stock_symbol, label, result
                 )
 
-        # ── Final combined analysis ───────────────────────────
+        # ── FIX 3: Final combined analysis with proper error handling
+        #    and guaranteed yield of the final verdict to the user.
+        # ─────────────────────────────────────────────────────
         yield {"status": "processing", "message": "Running final combined analysis..."}
 
         final_response = None
@@ -725,6 +737,14 @@ class AnalysisStatement:
             else:
                 yield item
 
+        # Guard: if AI returned nothing, surface an error instead of silently failing
+        if not final_response:
+            yield {
+                "status":  "error",
+                "message": "Final analysis AI returned no result. Sub-analyses above are still available.",
+            }
+            return
+
         # ── Assemble + save final data ────────────────────────
         final_data = {
             BALANCE_SHEET:    collected.get(BALANCE_SHEET),
@@ -733,7 +753,7 @@ class AnalysisStatement:
             SHAREHOLDERS:     collected.get(SHAREHOLDERS),
             FINANCIAL_RATIOS: collected.get(FINANCIAL_RATIOS),
             "news_analysis":  collected.get(NEWS),
-            FINAL_ANALYSIS:   final_response,
+            FINAL_ANALYSIS:   final_response,   # ← the AI-synthesized verdict
         }
 
         await SavingResponse.save_response(
@@ -767,16 +787,7 @@ class AnalysisStatement:
             yield {"status": "done", "message": "No analysis needed"}
             return
 
-        route_map = {
-            "balance sheet":        lambda: self.analysisTheBalanceSheet(),
-            "income statement":     lambda: self.analysisIncomeStatement(),
-            "cash flow":            lambda: self.analysisCashFlow(),
-            "shareholding pattern": lambda: self.analysisShareholders(),
-            "valuation ratios":     lambda: self.analysisFinancialRatios(),
-            "news":                 lambda: self.analysisNews(),
-            "full_analysis":        lambda: self.analysisTheStock("full_analysis"),
-        }
-
+        # ── Parse the wordfinding AI output into a list of types ──
         if isinstance(user_response, str):
             responses = [
                 item.strip().lower()
@@ -794,6 +805,22 @@ class AnalysisStatement:
 
         print("FINAL TYPES:", responses)
 
+        # ── FIX 1: Route map now covers all alias strings the AI
+        #    might return for "full analysis", plus original keys.
+        # ─────────────────────────────────────────────────────
+        route_map = {
+            "balance sheet":        self.analysisTheBalanceSheet,
+            "income statement":     self.analysisIncomeStatement,
+            "cash flow":            self.analysisCashFlow,
+            "shareholding pattern": self.analysisShareholders,
+            "valuation ratios":     self.analysisFinancialRatios,
+            "financial ratios":     self.analysisFinancialRatios,
+            "news":                 self.analysisNews,
+            # All full-analysis aliases resolve to the same handler
+            **{alias: lambda: self.analysisTheStock("full_analysis")
+               for alias in FULL_ANALYSIS_ALIASES},
+        }
+
         for analysis_type in responses:
 
             handler = route_map.get(analysis_type)
@@ -801,7 +828,7 @@ class AnalysisStatement:
             if not handler:
                 yield {
                     "status":  "error",
-                    "message": f"Unknown analysis type: {analysis_type}",
+                    "message": f"Unknown analysis type: '{analysis_type}' — supported: {list(route_map.keys())}",
                 }
                 continue
 
