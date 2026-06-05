@@ -31,8 +31,6 @@ class ScrapingNewsData:
 
 
 
-# a = ScrapingNewsData(companyName="TCS")
-# value = a.scrapingNews()
-# print(value)
-
-# return news_data if news_data else None
+def company_news(company_name: str):
+    """Convenience wrapper around ScrapingNewsData.scrapingNews."""
+    return ScrapingNewsData(companyName=company_name).scrapingNews()

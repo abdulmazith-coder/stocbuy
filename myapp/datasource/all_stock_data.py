@@ -27,7 +27,6 @@ from myapp.clean_data.validate_exchange import validate_exchange
 from myapp.clean_data.convert_timestamps import convert_timestamps
 from myapp.datasource.nse_exchange_apis import NSEExchangeApis
 from myapp.datasource.scraping.bse_ipo import ScrapingBSEIPO
-from myapp.datasource.scraping.company_news import company_news
 from myapp.datasource.sebi_register_adviser import SEBIRegisterApis
 
 
