@@ -1,4 +1,5 @@
 import re
+import json
 import asyncio
 from datetime import timedelta
 
@@ -83,6 +84,34 @@ def _fetch_all_yfinance(ticker):
         "major_holders": ticker.major_holders,
         "info":          ticker.info,
     }
+
+
+def _ensure_dict(value) -> dict:
+    """
+    Safely coerce a DB-stored value to a plain Python dict.
+
+    The AIResponse.response field may come back from the DB as:
+      • a dict  (Django JSONField or already-parsed)
+      • a str   (JSON string, e.g. '{"balance_sheet": "..."}')
+      • None / anything else → return {}
+
+    This is the root cause of the original crash:
+        'str' object has no attribute 'get'
+    Calling .get() on the raw DB value without this guard fails
+    whenever the field is stored as a JSON string.
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("{"):
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+    return {}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -200,19 +229,30 @@ class AnalysisStatement:
 
     @staticmethod
     def _info_str(infodata, *keys, default="N/A"):
+        """
+        Safely extract a string from info_data.
+
+        FIX: infodata might be a string (e.g. a cached JSON string from DB
+        that was not yet parsed). _ensure_dict() normalises it to a plain
+        dict before calling .get(), preventing the original crash.
+        """
         if not infodata:
             return default
+        # Guard: if infodata arrived as a raw JSON string, parse it first.
+        safe = _ensure_dict(infodata) if not isinstance(infodata, dict) else infodata
         for key in keys:
-            v = infodata.get(key)
+            v = safe.get(key)
             if v is not None and str(v).strip():
                 return str(v).strip()
         return default
 
     def _company_context(self, infodata):
-        name     = self._info_str(infodata, "longName", "shortName", "name", "symbol",
+        # _ensure_dict protects against infodata being a raw JSON string.
+        safe     = _ensure_dict(infodata) if not isinstance(infodata, dict) else infodata
+        name     = self._info_str(safe, "longName", "shortName", "name", "symbol",
                                   default=self.stock_symbol)
-        industry = self._info_str(infodata, "industry")
-        sector   = self._info_str(infodata, "sector")
+        industry = self._info_str(safe, "industry")
+        sector   = self._info_str(safe, "sector")
         return (
             f"company name: {name}, industry: {industry}, "
             f"sector: {sector}, user responsive: {self.userResponsive}"
@@ -388,12 +428,18 @@ class AnalysisStatement:
             return
 
         data   = await self._fetch_yf()
+
+        # FIX: info_data from yfinance must be a dict.
+        # If it came back as a JSON string (e.g. from a stale cache path),
+        # parse it before passing to the AI so it doesn't crash on .get().
+        info_data = _ensure_dict(data["info"]) if not isinstance(data["info"], dict) else data["info"]
+
         result = None
 
         async for item in self._stream_ai(
             FINANCIAL_RATIOS, FINANCIAL_RATIOS,
             AIAnalsysis.aiAnalysis_2,
-            self.userResponsive, data["info"],
+            self.userResponsive, info_data,
             system_instruction_for_financial_ratios,
         ):
             if "__result__" in item:
@@ -483,36 +529,53 @@ class AnalysisStatement:
             self.stock_symbol, FULL_ANALYSIS
         )
         if cached_full and not cached_full["expired"]:
-            stored = cached_full["response"]   # dict saved from previous run
+            # ── FIX ──────────────────────────────────────────────────────────
+            # cached_full["response"] is whatever Django stored in the DB.
+            # If AIResponse.response is a TextField/CharField the ORM returns
+            # a raw JSON *string*, not a dict.  Calling .get() on a string
+            # raises: 'str' object has no attribute 'get'
+            #
+            # _ensure_dict() handles all three possible shapes:
+            #   • already a dict  → returned as-is
+            #   • JSON string     → json.loads() → dict
+            #   • anything else   → empty dict (graceful fallback)
+            # ─────────────────────────────────────────────────────────────────
+            stored = _ensure_dict(cached_full["response"])
 
-            # Yield each sub-analysis so frontend renders them identically
-            for key in SUB_ANALYSIS_KEYS:
-                value = stored.get(key)
-                if value:
+            if not stored:
+                # Corrupted or unrecognised cache value — fall through to fresh run.
+                print(f"[CACHE WARN] full_analysis cache for {self.stock_symbol} "
+                      f"could not be parsed as dict, re-running analysis. "
+                      f"Raw type: {type(cached_full['response'])}")
+            else:
+                # Yield each sub-analysis so frontend renders them identically
+                for key in SUB_ANALYSIS_KEYS:
+                    value = stored.get(key)
+                    if value:
+                        yield {
+                            "status":        "success",
+                            "cached":        True,
+                            "analysis_type": key,
+                            "data":          value,   # ← AI text from DB
+                        }
+
+                # Yield the final combined verdict from DB
+                final_from_db = stored.get(FINAL_ANALYSIS)
+                if final_from_db:
                     yield {
                         "status":        "success",
                         "cached":        True,
-                        "analysis_type": key,
-                        "data":          value,   # ← AI text from DB
+                        "analysis_type": FINAL_ANALYSIS,
+                        "data":          final_from_db,   # ← final AI verdict from DB
                     }
 
-            # Yield the final combined verdict from DB
-            final_from_db = stored.get(FINAL_ANALYSIS)
-            if final_from_db:
                 yield {
-                    "status":        "success",
-                    "cached":        True,
-                    "analysis_type": FINAL_ANALYSIS,
-                    "data":          final_from_db,   # ← final AI verdict from DB
+                    "status":  "success",
+                    "message": "Full analysis complete (from cache)",
+                    "cached":  True,
+                    "data":    stored,
                 }
-
-            yield {
-                "status":  "success",
-                "message": "Full analysis complete (from cache)",
-                "cached":  True,
-                "data":    stored,
-            }
-            return
+                return
 
         # ══════════════════════════════════════════════════════
         # CACHE MISS — fetch data, run AI, save, show to user
@@ -532,9 +595,15 @@ class AnalysisStatement:
             yield {"status": "error", "message": f"Failed fetching news: {e}"}
             return
 
+        # FIX: yfinance ticker.info can occasionally return a string on
+        # network errors or for delisted tickers. Normalise to dict here
+        # so every downstream .get() call is safe.
         info_data = yf_data["info"]
+        if not isinstance(info_data, dict):
+            info_data = _ensure_dict(info_data)
+
         if not info_data:
-            yield {"status": "error", "message": "Stock info empty"}
+            yield {"status": "error", "message": "Stock info empty or unreadable"}
             return
 
         # Clean raw dataframes
@@ -607,8 +676,10 @@ class AnalysisStatement:
                 self.stock_symbol, label
             )
             if sub_cached and not sub_cached["expired"]:
+                # FIX: sub-analysis cache values are plain strings (AI text),
+                # NOT dicts, so _ensure_dict is NOT applied here.
+                # We just pass them through as-is.
                 collected[label] = sub_cached["response"]
-                # ↓ SHOW cached sub-result to user
                 yield {
                     "status":        "success",
                     "cached":        True,
@@ -629,12 +700,10 @@ class AnalysisStatement:
             collected[label] = result
 
             if result:
-                # Save this sub-analysis to DB
                 await SavingResponse.save_response(
                     self.stock_symbol, label, result
                 )
 
-            # ↓ SHOW fresh AI result to user immediately
             yield {
                 "status":        "success",
                 "cached":        False,
@@ -666,7 +735,6 @@ class AnalysisStatement:
             else:
                 yield item   # heartbeat
 
-        # Guard: surface the error if final AI returned nothing
         if not final_response:
             yield {
                 "status":  "error",
@@ -675,12 +743,11 @@ class AnalysisStatement:
             }
             return
 
-        # ↓ SHOW final verdict to user
         yield {
             "status":        "success",
             "cached":        False,
             "analysis_type": FINAL_ANALYSIS,
-            "data":          final_response,   # ← AI-synthesised overall verdict
+            "data":          final_response,
         }
 
         # Assemble and save the complete result to DB
@@ -690,8 +757,8 @@ class AnalysisStatement:
             CASH_FLOW:        collected.get(CASH_FLOW),
             SHAREHOLDERS:     collected.get(SHAREHOLDERS),
             FINANCIAL_RATIOS: collected.get(FINANCIAL_RATIOS),
-            "news_analysis":  collected.get(NEWS),
-            FINAL_ANALYSIS:   final_response,
+            NEWS:             collected.get(NEWS),       # FIX: use NEWS constant key,
+            FINAL_ANALYSIS:   final_response,            # not the mismatched "news_analysis"
         }
 
         await SavingResponse.save_response(
