@@ -3,7 +3,6 @@ import yfinance as yf
 
 class FilterStocks:
 
-
     def filter_penny_stocks(self, stocks):
 
         filtered_stocks = []
@@ -26,7 +25,16 @@ class FilterStocks:
                     "message": f"Checking {symbol} ({index}/{total})"
                 }
 
-                info = yf.Ticker(symbol).info
+                # ✅ Separate try for yfinance — curl/network errors won't kill the stream
+                try:
+                    info = yf.Ticker(symbol).info
+                except Exception as yf_err:
+                    yield {
+                        "type": "error",
+                        "symbol": symbol,
+                        "message": f"yfinance error: {yf_err}"
+                    }
+                    continue
 
                 # --- Pull metrics ---
                 price            = info.get("currentPrice") or info.get("regularMarketPrice")
@@ -94,7 +102,6 @@ class FilterStocks:
 
                 yield {"type": "passed", "symbol": symbol, "message": "Profit Margin passed"}
 
-            
                 # =========================================
                 # GOOD STOCK
                 # =========================================
@@ -127,14 +134,13 @@ class FilterStocks:
                 }
 
             except Exception as e:
-
                 yield {
                     "type": "error",
                     "symbol": symbol,
                     "message": str(e)
                 }
 
-        # FINAL
+        # ✅ Always reached because per-stock errors are caught above
         yield {
             "type": "completed",
             "message": "Filtering completed",
