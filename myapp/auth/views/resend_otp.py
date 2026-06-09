@@ -27,6 +27,6 @@ class ResendOtpView(APIView):
                 defaults={'otp': hashed_otp, 'created_at': timezone.now()},
             )
             send_otp(email, otp)
-            return Response({'message': 'OTP sent to email'}, status=status.HTTP_200_OK)
+            return Response({'message': True}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
